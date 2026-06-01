@@ -79,6 +79,7 @@ export const Modal = 'Modal';
 export const TextInput = 'TextInput';
 export const Image = 'Image';
 export const SafeAreaView = 'SafeAreaView';
+export const ActivityIndicator = 'ActivityIndicator';
 
 export const AppState = {
   addEventListener: jest.fn(() => ({
@@ -104,6 +105,7 @@ export const StyleSheet = {
   create: (styles: Record<string, unknown>) => styles,
   flatten: (style: unknown) => style,
   hairlineWidth: 1,
+  absoluteFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 };
 
 export const LayoutAnimation = {

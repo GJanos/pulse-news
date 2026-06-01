@@ -71,12 +71,12 @@ export default function JumpModal({ open, onClose, visible, hasGlobal, jumpTo }:
               ]}
               accessibilityLabel="Jump to Global Headlines"
             >
-              <PulseIcon name="globe" size={15} color={theme.textDim} />
+              <PulseIcon name="globe" size={15} color={theme.accent} />
               <Text
                 style={{
                   fontFamily: font(aes, 'ui', 500),
                   fontSize: 14,
-                  color: theme.text,
+                  color: theme.accent,
                   marginLeft: 10,
                 }}
               >

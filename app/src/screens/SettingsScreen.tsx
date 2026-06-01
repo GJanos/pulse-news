@@ -1,5 +1,17 @@
-import React, { useCallback } from 'react';
-import { Alert, Animated, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Modal,
+  Linking,
+  Switch,
+  Animated,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AESTHETICS, THEMES, font } from '../themes';
 import type { Theme, Aesthetic } from '../themes';
@@ -9,246 +21,12 @@ import Stepper from '../components/Stepper';
 import PulseIcon from '../components/Icon';
 import { useSlideIn } from '../hooks/useSlideIn';
 import { useSwipe } from '../hooks/useSwipe';
-import { config } from '../config';
-import type { ThemeId, AestheticId } from '../types';
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+import type { UserPreferences } from '../types';
 
 interface Props {
   onLogout: () => void;
   onDeleteAccount: () => Promise<string | null>;
 }
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-function Group({
-  label,
-  children,
-  theme,
-  aes,
-}: {
-  label: string;
-  children: React.ReactNode;
-  theme: Theme;
-  aes: Aesthetic;
-}): React.ReactElement {
-  return (
-    <View style={styles.group}>
-      <Text
-        style={[
-          styles.groupLabel,
-          {
-            fontFamily: font(aes, 'eyebrow'),
-            fontSize: 11,
-            letterSpacing: 1.2,
-            color: theme.textFaint,
-          },
-        ]}
-      >
-        {label.toUpperCase()}
-      </Text>
-      <View style={[styles.groupCard, { backgroundColor: theme.surface }]}>{children}</View>
-    </View>
-  );
-}
-
-function Row({
-  label,
-  right,
-  theme,
-  aes,
-  onPress,
-  destructive,
-  first,
-  last,
-}: {
-  label: string;
-  right?: React.ReactNode;
-  theme: Theme;
-  aes: Aesthetic;
-  onPress?: () => void;
-  destructive?: boolean;
-  first?: boolean;
-  last?: boolean;
-}): React.ReactElement {
-  const borderRadius = {
-    borderTopLeftRadius: first ? 10 : 0,
-    borderTopRightRadius: first ? 10 : 0,
-    borderBottomLeftRadius: last ? 10 : 0,
-    borderBottomRightRadius: last ? 10 : 0,
-  };
-
-  return (
-    <>
-      {!first && <View style={[styles.rowDivider, { backgroundColor: theme.rule }]} />}
-      <Pressable onPress={onPress} style={[styles.row, borderRadius]} accessible={!!onPress}>
-        <Text
-          style={[
-            styles.rowLabel,
-            {
-              fontFamily: font(aes, 'ui'),
-              fontSize: 15,
-              color: destructive ? '#e03e3e' : theme.text,
-            },
-          ]}
-        >
-          {label}
-        </Text>
-        {right != null && <View style={styles.rowRight}>{right}</View>}
-      </Pressable>
-    </>
-  );
-}
-
-function SegRow<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-  theme,
-  aes,
-  first,
-  last,
-}: {
-  label: string;
-  options: { label: string; value: T }[];
-  value: T;
-  onChange: (v: T) => void;
-  theme: Theme;
-  aes: Aesthetic;
-  first?: boolean;
-  last?: boolean;
-}): React.ReactElement {
-  return (
-    <Row
-      label={label}
-      theme={theme}
-      aes={aes}
-      first={first}
-      last={last}
-      right={
-        <View style={styles.segControl}>
-          {options.map((opt) => (
-            <Pressable
-              key={opt.value}
-              onPress={() => onChange(opt.value)}
-              style={[
-                styles.segOption,
-                {
-                  backgroundColor: value === opt.value ? theme.accent : theme.chip,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  fontFamily: font(aes, 'ui'),
-                  fontSize: 12,
-                  color: value === opt.value ? '#fff' : theme.textDim,
-                }}
-              >
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      }
-    />
-  );
-}
-
-function NotifyTimePicker({
-  value,
-  onChange,
-  theme,
-  aes,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  theme: Theme;
-  aes: Aesthetic;
-}): React.ReactElement {
-  // Parse HH:MM
-  const [hStr, mStr] = value.split(':');
-  const h = parseInt(hStr ?? '7', 10);
-  const m = parseInt(mStr ?? '30', 10);
-
-  const setH = useCallback(
-    (n: number) => onChange(`${String(n).padStart(2, '0')}:${mStr}`),
-    [mStr, onChange],
-  );
-  const setM = useCallback(
-    (n: number) => onChange(`${hStr}:${String(n).padStart(2, '0')}`),
-    [hStr, onChange],
-  );
-
-  return (
-    <Row
-      label="Notify time"
-      theme={theme}
-      aes={aes}
-      right={
-        <View style={styles.timeRow}>
-          <Stepper theme={theme} aes={aes} value={h} min={0} max={23} onChange={setH} />
-          <Text style={{ color: theme.textDim, marginHorizontal: 4, fontSize: 16 }}>:</Text>
-          <Stepper theme={theme} aes={aes} value={m} min={0} max={59} onChange={setM} />
-        </View>
-      }
-    />
-  );
-}
-
-function CurrencyPicker({
-  value,
-  onChange,
-  theme,
-  aes,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  theme: Theme;
-  aes: Aesthetic;
-}): React.ReactElement {
-  const currencies = ['USD', 'EUR', 'GBP', 'HUF', 'UAH'];
-  return (
-    <Row
-      label="Base currency"
-      theme={theme}
-      aes={aes}
-      right={
-        <View style={styles.segControl}>
-          {currencies.map((c) => (
-            <Pressable
-              key={c}
-              onPress={() => onChange(c)}
-              style={[
-                styles.segOption,
-                { backgroundColor: value === c ? theme.accent : theme.chip },
-              ]}
-            >
-              <Text
-                style={{
-                  fontFamily: font(aes, 'number'),
-                  fontSize: 11,
-                  color: value === c ? '#fff' : theme.textDim,
-                }}
-              >
-                {c}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      }
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 export default function SettingsScreen({ onLogout, onDeleteAccount }: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
@@ -256,362 +34,771 @@ export default function SettingsScreen({ onLogout, onDeleteAccount }: Props): Re
   const session = useAppStore((s) => s.session);
   const notificationsEnabled = useAppStore((s) => s.notificationsEnabled);
   const setPref = useAppStore((s) => s.setPref);
+  const setScreen = useAppStore((s) => s.setScreen);
 
   const theme = THEMES[prefs.theme] ?? THEMES.light;
   const aes = AESTHETICS[prefs.aesthetic] ?? AESTHETICS.editorial;
 
-  // Slide-in animation (dismiss = swipe/back navigation)
-  // onDismiss is a no-op here since navigation is handled externally
-  const { slideAnim, dismiss } = useSlideIn(() => {});
-  const panHandlers = useSwipe(dismiss, undefined);
+  const { slideAnim, dismiss } = useSlideIn(() => setScreen('digest'));
+  const panHandlers = useSwipe(undefined, dismiss);
+  const [deleting, setDeleting] = useState(false);
 
-  const handleDeleteAccount = useCallback(() => {
+  const confirmDelete = (): void => {
     Alert.alert(
       'Delete account',
-      'This will permanently delete your account and all data. This action cannot be undone.',
+      'This permanently deletes your account and all data. This cannot be undone.',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => {},
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            const err = await onDeleteAccount();
-            if (err) {
-              Alert.alert('Error', err);
-            }
+          onPress: () => {
+            setDeleting(true);
+            onDeleteAccount().then((err) => {
+              setDeleting(false);
+              if (err) Alert.alert('Error', err);
+            });
           },
         },
       ],
     );
-  }, [onDeleteAccount]);
+  };
 
   const email = session?.user?.email ?? '';
 
   return (
     <Animated.View
       style={[
-        styles.container,
-        { backgroundColor: theme.bg, transform: [{ translateX: slideAnim }] },
+        StyleSheet.absoluteFill,
+        {
+          backgroundColor: theme.bg,
+          zIndex: 50,
+          transform: [{ translateX: slideAnim }],
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
       ]}
       {...panHandlers}
     >
-      {/* Notifications disabled banner */}
-      {!notificationsEnabled && (
+      <View style={[s.header, { backgroundColor: theme.bg, borderBottomColor: theme.rule }]}>
         <Pressable
-          style={[styles.notifBanner, { backgroundColor: theme.accentSoft }]}
-          onPress={() => Linking.openSettings()}
+          onPress={dismiss}
+          style={[s.backBtn, { backgroundColor: theme.chip }]}
+          hitSlop={6}
+          accessibilityLabel="Back"
         >
-          <PulseIcon name="bell" size={14} color={theme.accent} />
-          <Text
-            style={[styles.notifBannerText, { fontFamily: font(aes, 'ui'), color: theme.accent }]}
-          >
-            Notifications disabled
-          </Text>
+          <PulseIcon name="arrow-left" size={16} color={theme.text} />
         </Pressable>
-      )}
+        <Text
+          style={{
+            fontFamily: font(aes, 'title', 700),
+            fontSize: 22,
+            lineHeight: 26,
+            letterSpacing: -0.3,
+            color: theme.text,
+            flex: 1,
+            marginLeft: 8,
+          }}
+        >
+          Settings
+        </Text>
+      </View>
 
       <Animated.ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 },
-        ]}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: 20, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.headerTitle,
-              { fontFamily: font(aes, 'title'), fontSize: 22, color: theme.text },
-            ]}
-          >
-            Settings
-          </Text>
-          {email ? (
-            <Text
-              style={[
-                styles.headerEmail,
-                { fontFamily: font(aes, 'body'), fontSize: 13, color: theme.textDim },
-              ]}
-            >
-              {email}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Regions */}
-        <Group label="Regions" theme={theme} aes={aes}>
-          <RegionPicker />
-        </Group>
-
-        {/* Headlines */}
-        <Group label="Headlines" theme={theme} aes={aes}>
+        <Group theme={theme} aes={aes} label="Account">
           <Row
-            label="Per region"
-            first
             theme={theme}
             aes={aes}
-            right={
-              <Stepper
+            label="Signed in as"
+            value={
+              <Text style={{ fontFamily: font(aes, 'number'), color: theme.textDim, fontSize: 13 }}>
+                {email}
+              </Text>
+            }
+          />
+        </Group>
+
+        <Group theme={theme} aes={aes} label="Notification">
+          {!notificationsEnabled && (
+            <Pressable
+              onPress={() => void Linking.openSettings()}
+              style={[s.row, { borderBottomColor: theme.rule }]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{ fontFamily: font(aes, 'ui', 500), fontSize: 14.5, color: theme.accent }}
+                >
+                  Notifications disabled
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: font(aes, 'body'),
+                    fontSize: 12,
+                    color: theme.textFaint,
+                    marginTop: 2,
+                  }}
+                >
+                  Tap to open system settings
+                </Text>
+              </View>
+              <PulseIcon name="arrow-right" size={16} color={theme.textFaint} />
+            </Pressable>
+          )}
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Daily digest time"
+            sub="One push a day, no more."
+            value={
+              <NotifyTimePicker
                 theme={theme}
                 aes={aes}
-                value={prefs.headlineCount}
-                min={1}
-                max={config.fetchCount}
-                onChange={(n) => setPref('headlineCount', n)}
+                value={prefs.notifyTime}
+                onChange={(v) => setPref('notifyTime', v)}
               />
             }
           />
+        </Group>
+
+        <Group theme={theme} aes={aes} label="Global Headlines">
           <Row
-            label="Show global"
             theme={theme}
             aes={aes}
-            right={
+            label="Show global headlines"
+            sub="Top stories from across all regions, selected by global importance."
+            value={
               <Switch
                 value={prefs.showGlobalHeadlines}
                 onValueChange={(v) => setPref('showGlobalHeadlines', v)}
-                trackColor={{ true: theme.accent }}
+                trackColor={{ false: theme.chip, true: theme.accent }}
+                thumbColor={theme.bg}
               />
             }
           />
-          {prefs.showGlobalHeadlines && (
-            <Row
-              label="Global count"
-              last
-              theme={theme}
-              aes={aes}
-              right={
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Count"
+            sub="Number of global headlines shown."
+            value={
+              <View
+                pointerEvents={prefs.showGlobalHeadlines ? 'auto' : 'none'}
+                style={{ opacity: prefs.showGlobalHeadlines ? 1 : 0.35 }}
+              >
                 <Stepper
                   theme={theme}
                   aes={aes}
                   value={prefs.globalHeadlineCount}
                   min={1}
-                  max={config.fetchCount}
-                  onChange={(n) => setPref('globalHeadlineCount', n)}
+                  max={10}
+                  onChange={(v) => setPref('globalHeadlineCount', v)}
                 />
-              }
-            />
-          )}
+              </View>
+            }
+          />
         </Group>
 
-        {/* Notifications */}
-        <Group label="Notifications" theme={theme} aes={aes}>
-          <NotifyTimePicker
-            value={prefs.notifyTime}
-            onChange={(v) => setPref('notifyTime', v)}
-            theme={theme}
-            aes={aes}
-          />
+        <RegionPicker />
+
+        <Group theme={theme} aes={aes} label="Reading">
           <Row
-            label="History days"
-            last
             theme={theme}
             aes={aes}
-            right={
+            label="Local history"
+            sub="Days of digests kept on this device."
+            value={
               <Stepper
                 theme={theme}
                 aes={aes}
                 value={prefs.historyDays}
-                min={1}
+                min={3}
                 max={30}
-                onChange={(n) => setPref('historyDays', n)}
-                suffix=" d"
+                suffix="d"
+                onChange={(v) => setPref('historyDays', v)}
+              />
+            }
+          />
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Open links in"
+            value={
+              <SegRow<UserPreferences['openLinksIn']>
+                theme={theme}
+                aes={aes}
+                value={prefs.openLinksIn}
+                options={[
+                  { value: 'in-app', label: 'In-app' },
+                  { value: 'browser', label: 'Browser' },
+                ]}
+                onChange={(v) => setPref('openLinksIn', v)}
               />
             }
           />
         </Group>
 
-        {/* Reading */}
-        <Group label="Reading" theme={theme} aes={aes}>
-          <SegRow
-            label="Open links in"
-            options={[
-              { label: 'In-app', value: 'in-app' as const },
-              { label: 'Browser', value: 'browser' as const },
-            ]}
-            value={prefs.openLinksIn}
-            onChange={(v) => setPref('openLinksIn', v)}
-            theme={theme}
-            aes={aes}
-            first
-            last
-          />
-        </Group>
-
-        {/* Currency */}
-        <Group label="Currency" theme={theme} aes={aes}>
+        <Group theme={theme} aes={aes} label="Display">
           <Row
-            label="Show rates"
-            first
             theme={theme}
             aes={aes}
-            right={
+            label="Theme"
+            value={
+              <SegRow<UserPreferences['theme']>
+                theme={theme}
+                aes={aes}
+                value={prefs.theme}
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'sepia', label: 'Sepia' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+                onChange={(v) => setPref('theme', v)}
+              />
+            }
+          />
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Font"
+            value={
+              <SegRow<UserPreferences['aesthetic']>
+                theme={theme}
+                aes={aes}
+                value={prefs.aesthetic}
+                options={[
+                  { value: 'editorial', label: 'Serif' },
+                  { value: 'clinical', label: 'Sans' },
+                  { value: 'brutalist', label: 'Mono' },
+                ]}
+                onChange={(v) => setPref('aesthetic', v)}
+              />
+            }
+          />
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Region label"
+            value={
+              <SegRow<UserPreferences['regionStyle']>
+                theme={theme}
+                aes={aes}
+                value={prefs.regionStyle}
+                options={[
+                  { value: 'flag', label: 'Flag' },
+                  { value: 'code', label: 'Code' },
+                ]}
+                onChange={(v) => setPref('regionStyle', v)}
+              />
+            }
+          />
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Currency rates"
+            sub="Show rate and daily % change per region."
+            value={
               <Switch
                 value={prefs.showCurrencyRates}
                 onValueChange={(v) => setPref('showCurrencyRates', v)}
-                trackColor={{ true: theme.accent }}
+                trackColor={{ false: theme.chip, true: theme.accent }}
+                thumbColor={theme.bg}
               />
             }
           />
-          <CurrencyPicker
-            value={prefs.baseCurrency}
-            onChange={(v) => setPref('baseCurrency', v)}
+          <Row
             theme={theme}
             aes={aes}
+            label="Base currency"
+            sub="Rates displayed relative to this currency."
+            value={
+              <CurrencyPicker
+                theme={theme}
+                aes={aes}
+                value={prefs.baseCurrency}
+                onChange={(v) => setPref('baseCurrency', v)}
+                disabled={!prefs.showCurrencyRates}
+              />
+            }
           />
         </Group>
 
-        {/* Appearance */}
-        <Group label="Appearance" theme={theme} aes={aes}>
-          <SegRow
-            label="Theme"
-            options={[
-              { label: 'Light', value: 'light' as ThemeId },
-              { label: 'Sepia', value: 'sepia' as ThemeId },
-              { label: 'Dark', value: 'dark' as ThemeId },
-            ]}
-            value={prefs.theme}
-            onChange={(v) => setPref('theme', v)}
-            theme={theme}
-            aes={aes}
-            first
-          />
-          <SegRow
-            label="Style"
-            options={[
-              { label: 'Editorial', value: 'editorial' as AestheticId },
-              { label: 'Clinical', value: 'clinical' as AestheticId },
-              { label: 'Brutalist', value: 'brutalist' as AestheticId },
-            ]}
-            value={prefs.aesthetic}
-            onChange={(v) => setPref('aesthetic', v)}
-            theme={theme}
-            aes={aes}
-          />
-          <SegRow
-            label="Region badge"
-            options={[
-              { label: 'Flag', value: 'flag' as const },
-              { label: 'Code', value: 'code' as const },
-            ]}
-            value={prefs.regionStyle}
-            onChange={(v) => setPref('regionStyle', v)}
-            theme={theme}
-            aes={aes}
-            last
-          />
-        </Group>
-
-        {/* Account */}
-        <Group label="Account" theme={theme} aes={aes}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
           <Pressable
             onPress={onLogout}
             accessibilityLabel="Sign out"
-            style={[styles.row, { borderTopLeftRadius: 10, borderTopRightRadius: 10 }]}
+            style={({ pressed }) => [
+              s.logout,
+              { borderColor: theme.rule, opacity: pressed ? 0.75 : 1 },
+            ]}
           >
-            <PulseIcon name="logout" size={16} color={theme.text} />
+            <PulseIcon name="logout" size={15} color={theme.text} />
             <Text
-              style={[
-                styles.rowLabel,
-                { fontFamily: font(aes, 'ui'), fontSize: 15, color: theme.text, marginLeft: 8 },
-              ]}
+              style={{
+                fontFamily: font(aes, 'ui', 600),
+                fontSize: 14.5,
+                color: theme.text,
+                marginLeft: 8,
+              }}
             >
               Sign out
             </Text>
           </Pressable>
-          <View style={[styles.rowDivider, { backgroundColor: theme.rule }]} />
+        </View>
+
+        <View style={{ paddingHorizontal: 20, paddingTop: 12, alignItems: 'center' }}>
           <Pressable
-            onPress={handleDeleteAccount}
-            style={[styles.row, { borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }]}
+            onPress={confirmDelete}
+            disabled={deleting}
+            style={({ pressed }) => ({
+              opacity: deleting || pressed ? 0.55 : 1,
+              paddingVertical: 10,
+            })}
           >
-            <Text
-              style={[
-                styles.rowLabel,
-                { fontFamily: font(aes, 'ui'), fontSize: 15, color: '#e03e3e' },
-              ]}
-            >
-              Delete account
-            </Text>
+            {deleting ? (
+              <ActivityIndicator size="small" color="#c0392b" />
+            ) : (
+              <Text style={{ fontFamily: font(aes, 'ui', 500), fontSize: 13, color: '#c0392b' }}>
+                Delete account
+              </Text>
+            )}
           </Pressable>
-        </Group>
+        </View>
+
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, alignItems: 'center' }}>
+          <Text
+            style={{
+              fontFamily: font(aes, 'eyebrow', 500),
+              fontSize: 10,
+              letterSpacing: 2,
+              lineHeight: 18,
+              color: theme.textFaint,
+              textTransform: 'uppercase',
+              textAlign: 'center',
+            }}
+          >
+            Pulse News · v1.0{'\n'}one notification · one tap · move on
+          </Text>
+        </View>
       </Animated.ScrollView>
     </Animated.View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
+// ── Building blocks ──────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  notifBanner: {
+interface GroupProps {
+  theme: Theme;
+  aes: Aesthetic;
+  label: string;
+  children: React.ReactNode;
+}
+
+function Group({ theme, aes, label, children }: GroupProps): React.ReactElement {
+  return (
+    <View style={{ marginBottom: 24 }}>
+      <View style={s.groupHead}>
+        <Text
+          style={{
+            fontFamily: font(aes, 'eyebrow', 600),
+            fontSize: 10,
+            letterSpacing: 1.8,
+            color: theme.textFaint,
+            textTransform: 'uppercase',
+          }}
+        >
+          {label}
+        </Text>
+      </View>
+      <View
+        style={{
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderColor: theme.rule,
+          backgroundColor: theme.surface,
+        }}
+      >
+        {children}
+      </View>
+    </View>
+  );
+}
+
+interface RowProps {
+  theme: Theme;
+  aes: Aesthetic;
+  label: string;
+  sub?: string;
+  value: React.ReactNode;
+}
+
+function Row({ theme, aes, label, sub, value }: RowProps): React.ReactElement {
+  return (
+    <View style={[s.row, { borderBottomColor: theme.rule }]}>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: font(aes, 'ui', 500),
+            fontSize: 14.5,
+            color: theme.text,
+            letterSpacing: -0.05,
+          }}
+        >
+          {label}
+        </Text>
+        {sub ? (
+          <Text
+            style={{
+              fontFamily: font(aes, 'body'),
+              fontSize: 12,
+              color: theme.textFaint,
+              lineHeight: 16,
+              marginTop: 2,
+            }}
+          >
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+      <View>{value}</View>
+    </View>
+  );
+}
+
+const TIME_OPTS: string[] = [];
+for (let hr = 6; hr <= 22; hr++) {
+  for (const m of [0, 30]) {
+    TIME_OPTS.push(`${String(hr).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  }
+}
+const TIME_ITEM_HEIGHT = 45;
+
+interface NotifyTimePickerProps {
+  theme: Theme;
+  aes: Aesthetic;
+  value: string;
+  onChange: (v: string) => void;
+}
+
+/** Chip showing the daily digest time; opens a bottom-sheet list of 30-min slots. */
+function NotifyTimePicker({
+  theme,
+  aes,
+  value,
+  onChange,
+}: NotifyTimePickerProps): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const i = TIME_OPTS.indexOf(value);
+    if (i <= 2) return;
+    const id = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: (i - 2) * TIME_ITEM_HEIGHT, animated: false });
+    }, 50);
+    return () => clearTimeout(id);
+  }, [open, value]);
+
+  return (
+    <>
+      <Pressable
+        onPress={() => setOpen(true)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          backgroundColor: theme.chip,
+          borderRadius: 10,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: font(aes, 'number'),
+            fontSize: 14,
+            color: theme.text,
+            letterSpacing: 0.1,
+          }}
+        >
+          {value}
+        </Text>
+        <View style={{ marginLeft: 6 }}>
+          <PulseIcon name="chevron-down" size={12} color={theme.textFaint} strokeWidth={2} />
+        </View>
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          onPress={() => setOpen(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: theme.surface,
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              paddingTop: 12,
+              paddingBottom: 36,
+              maxHeight: '60%',
+            }}
+            onPress={() => {}}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: theme.rule,
+                alignSelf: 'center',
+                marginBottom: 8,
+              }}
+            />
+            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+              {TIME_OPTS.map((time) => {
+                const sel = time === value;
+                return (
+                  <Pressable
+                    key={time}
+                    onPress={() => {
+                      onChange(time);
+                      setOpen(false);
+                    }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingHorizontal: 28,
+                      paddingVertical: 14,
+                      backgroundColor: pressed || sel ? theme.chip : 'transparent',
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: font(aes, 'number'),
+                        fontSize: 17,
+                        color: sel ? theme.accent : theme.text,
+                      }}
+                    >
+                      {time}
+                    </Text>
+                    {sel && (
+                      <PulseIcon name="check" size={16} color={theme.accent} strokeWidth={2.2} />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
+const POPULAR_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD'] as const;
+
+interface CurrencyPickerProps {
+  theme: Theme;
+  aes: Aesthetic;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}
+
+/** Chip showing the base currency; opens a bottom-sheet list. No-op while disabled. */
+function CurrencyPicker({
+  theme,
+  aes,
+  value,
+  onChange,
+  disabled = false,
+}: CurrencyPickerProps): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable
+        onPress={() => !disabled && setOpen(true)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          backgroundColor: theme.chip,
+          borderRadius: 10,
+          opacity: disabled ? 0.35 : 1,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: font(aes, 'number'),
+            fontSize: 14,
+            color: theme.text,
+            letterSpacing: 0.1,
+          }}
+        >
+          {value}
+        </Text>
+        <View style={{ marginLeft: 6 }}>
+          <PulseIcon name="chevron-down" size={12} color={theme.textFaint} strokeWidth={2} />
+        </View>
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          onPress={() => setOpen(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: theme.surface,
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              paddingTop: 12,
+              paddingBottom: 36,
+            }}
+            onPress={() => {}}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: theme.rule,
+                alignSelf: 'center',
+                marginBottom: 8,
+              }}
+            />
+            {POPULAR_CURRENCIES.map((c) => {
+              const sel = c === value;
+              return (
+                <Pressable
+                  key={c}
+                  onPress={() => {
+                    onChange(c);
+                    setOpen(false);
+                  }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 28,
+                    paddingVertical: 14,
+                    backgroundColor: pressed || sel ? theme.chip : 'transparent',
+                  })}
+                >
+                  <Text
+                    style={{
+                      fontFamily: font(aes, 'number'),
+                      fontSize: 17,
+                      color: sel ? theme.accent : theme.text,
+                    }}
+                  >
+                    {c}
+                  </Text>
+                  {sel && (
+                    <PulseIcon name="check" size={16} color={theme.accent} strokeWidth={2.2} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
+interface SegOption<V extends string> {
+  value: V;
+  label: string;
+}
+interface SegRowProps<V extends string> {
+  theme: Theme;
+  aes: Aesthetic;
+  value: V;
+  options: SegOption<V>[];
+  onChange: (v: V) => void;
+}
+
+function SegRow<V extends string>({
+  theme,
+  aes,
+  value,
+  options,
+  onChange,
+}: SegRowProps<V>): React.ReactElement {
+  return (
+    <View style={[s.seg, { backgroundColor: theme.chip }]}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            onPress={() => onChange(o.value)}
+            style={[s.segBtn, { backgroundColor: on ? theme.surface : 'transparent' }]}
+          >
+            <Text
+              style={{
+                fontFamily: font(aes, 'ui', on ? 600 : 500),
+                fontSize: 12.5,
+                letterSpacing: -0.05,
+                color: on ? theme.text : theme.textDim,
+              }}
+            >
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  notifBannerText: {
-    fontSize: 13,
-    marginLeft: 6,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  headerTitle: {
-    marginBottom: 2,
-  },
-  headerEmail: {},
-  group: {
-    marginBottom: 24,
-  },
-  groupLabel: {
-    marginBottom: 6,
-    marginLeft: 4,
-  },
-  groupCard: {
+  backBtn: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupHead: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
   row: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 48,
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  rowLabel: {
-    flex: 1,
-  },
-  rowRight: {
-    marginLeft: 8,
-  },
-  rowDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 14,
-  },
-  segControl: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  segOption: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  timeRow: {
+  logout: {
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
+  seg: { flexDirection: 'row', padding: 2, borderRadius: 9 },
+  segBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 7 },
 });

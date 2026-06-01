@@ -4,7 +4,8 @@ import { PressableScale } from 'react-native-pressable-scale';
 import { THEMES, AESTHETICS, font } from '../themes';
 import PulseIcon from './Icon';
 import Flag from './Flag';
-import { formatRate, type CurrencyRate } from '../hooks/useCurrencyRates';
+import { CurrencyChip } from './CurrencyChip';
+import type { CurrencyRate } from '../hooks/useCurrencyRates';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
 import type { VisibleBucket } from '../hooks/useDigestPageData';
@@ -14,31 +15,6 @@ interface RegionSectionProps {
   currencyRate?: CurrencyRate;
   onOpenArticle: (h: Headline, r: Region) => void;
 }
-
-interface CurrencyChipProps {
-  code: string;
-  baseCurrency: string;
-  rate: CurrencyRate;
-}
-
-function CurrencyChip({ code, baseCurrency, rate }: CurrencyChipProps): React.ReactElement {
-  const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
-  const theme = useAppStore((s) => THEMES[s.prefs.theme]);
-  const sign = rate.changePercent == null ? '' : rate.changePercent >= 0 ? '+' : '';
-  const changeTxt = rate.changePercent == null ? '' : ` ${sign}${rate.changePercent.toFixed(1)}%`;
-  return (
-    <View style={[chip.wrap, { backgroundColor: theme.accentSoft }]}>
-      <Text style={{ fontFamily: font(aes, 'number', 600), fontSize: 11, color: theme.accent }}>
-        {code}/{baseCurrency} {formatRate(rate.rate)}
-        {changeTxt}
-      </Text>
-    </View>
-  );
-}
-
-const chip = StyleSheet.create({
-  wrap: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5 },
-});
 
 function RegionSectionImpl({
   bucket,
@@ -208,5 +184,5 @@ const s = StyleSheet.create({
   headlineRow: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 18 },
   numberCol: { width: 32, paddingTop: 2 },
   content: { flex: 1 },
-  sourceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 5 },
 });

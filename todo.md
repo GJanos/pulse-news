@@ -2,6 +2,11 @@
 
 ## V1
 
+- settings saved too agressively
+- app name back to pulse news
+- make default app theme to black
+- make loading screen when app start (not splash screen) default black
+
 ### Deployment
 
 - [ ] **Set `EXPO_PUBLIC_API_URL`** — once Vercel is deployed, add the deployment URL to `app/.env` so `POST /api/account` (server-side device registration) becomes available
@@ -23,7 +28,15 @@
 
 - [ ] Force refresh not allowed in empty digests page — empty today should not be cached
 - [ ] Notifications are often missed due to Android issues
-- [ ] Currency rates are showing bad values
+- [x] Currency rates are showing bad values — root cause was the refactor pairing `@latest`
+      against a device-clock "yesterday"; when the CDN `@latest` edge lags a day they resolve to
+      the same published file → flat 0%. Fixed by anchoring "yesterday" to the `date` field in the
+      `latest` payload (`useCurrencyRates.buildCurrencyRates`). Also restored the legacy two-line
+      `CurrencyChip` (extracted to `components/CurrencyChip.tsx`, colored ↑/↓ arrows, dash for sub-0.005%).
+- [x] Currency rates leaked onto non-today digests — React Query retains disabled-query data;
+      `useCurrencyRates` now returns `{}` whenever the query is inactive.
+- [x] Jump modal "Global" row used `textDim`/`text` after the refactor — restored to legacy `theme.accent`
+      (icon + label) in `components/JumpModal.tsx`.
 
 ### UI & Polish
 
