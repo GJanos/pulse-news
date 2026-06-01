@@ -27,9 +27,11 @@ export interface NavSlice {
   screen: ScreenId;
   dayIndex: number;
   article: ArticleEntry | null;
+  digestRefreshNonce: number;
   setScreen: (screen: ScreenId) => void;
   setDayIndex: (idx: number) => void;
   setArticle: (entry: ArticleEntry | null) => void;
+  navigateToDigest: () => void;
   restoreNavState: () => void;
   persistNavState: () => void;
 }
@@ -40,6 +42,7 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
   screen: 'digest',
   dayIndex: 0,
   article: null,
+  digestRefreshNonce: 0,
 
   setScreen: (screen) => {
     set({ screen });
@@ -54,6 +57,11 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
   setArticle: (article) => {
     set({ article });
     // Article is transient — not persisted across restarts
+  },
+
+  navigateToDigest: () => {
+    set({ screen: 'digest', dayIndex: 0, digestRefreshNonce: get().digestRefreshNonce + 1 });
+    get().persistNavState();
   },
 
   restoreNavState: () => {
