@@ -53,6 +53,22 @@ describe('upsertDevice', () => {
     mockGetSupabase.mockReturnValue(null);
     await expect(upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1' })).resolves.toBeUndefined();
   });
+
+  it('includes notify_at when explicitly null (clearing the time)', async () => {
+    const client = makeClient();
+    mockGetSupabase.mockReturnValue(client as never);
+    await upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1', notifyAt: null });
+    const payload = client.upsert.mock.calls[0]![0] as Record<string, unknown>;
+    expect('notify_at' in payload).toBe(true);
+    expect(payload.notify_at).toBeNull();
+  });
+
+  it('resolves without throwing when Supabase returns an error', async () => {
+    const client = makeClient();
+    client.upsert.mockResolvedValue({ error: { message: 'boom' } });
+    mockGetSupabase.mockReturnValue(client as never);
+    await expect(upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1' })).resolves.toBeUndefined();
+  });
 });
 
 describe('linkDeviceToUser', () => {
@@ -62,6 +78,18 @@ describe('linkDeviceToUser', () => {
     await linkDeviceToUser('dev-1', 'user-9');
     expect(client.update).toHaveBeenCalledWith({ user_id: 'user-9' });
     expect(client.eq).toHaveBeenCalledWith('id', 'dev-1');
+  });
+
+  it('no-ops when Supabase is unconfigured', async () => {
+    mockGetSupabase.mockReturnValue(null);
+    await expect(linkDeviceToUser('dev-1', 'user-9')).resolves.toBeUndefined();
+  });
+
+  it('resolves without throwing when the update errors', async () => {
+    const client = makeClient();
+    client.eq.mockResolvedValue({ error: { message: 'denied' } });
+    mockGetSupabase.mockReturnValue(client as never);
+    await expect(linkDeviceToUser('dev-1', 'user-9')).resolves.toBeUndefined();
   });
 });
 
@@ -78,10 +106,20 @@ describe('updateNotifyTime', () => {
     const client = makeClient();
     mockGetSupabase.mockReturnValue(client as never);
     await updateNotifyTime('dev-1', '09:00');
-    expect(client.upsert.mock.calls[0][0]).toMatchObject({
+    expect(client.upsert.mock.calls[0]![0]).toMatchObject({
       id: 'dev-1',
       fcm_token: 'tok-cached',
       notify_at: '09:00',
     });
+  });
+
+  it('forwards a null notify_at (clearing) with the cached token', async () => {
+    storage.set(TOKEN_KEY, 'tok-cached');
+    const client = makeClient();
+    mockGetSupabase.mockReturnValue(client as never);
+    await updateNotifyTime('dev-1', null);
+    const payload = client.upsert.mock.calls[0]![0] as Record<string, unknown>;
+    expect(payload.fcm_token).toBe('tok-cached');
+    expect(payload.notify_at).toBeNull();
   });
 });

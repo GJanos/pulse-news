@@ -38,7 +38,8 @@
             "enableProguardInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "@react-native-firebase/messaging"
     ],
     "extra": {}
   }
