@@ -4,15 +4,16 @@ import { useSupabaseAuth, type AuthActions } from './useSupabaseAuth';
 
 export function handleAuthReady(authReady: boolean): void {
   if (!authReady) return;
-  const { session, appState, setAppState } = useAppStore.getState();
+  const { session, appState, setAppState, maybeAdvanceToReady } = useAppStore.getState();
   if (!session) {
     setAppState('unauthenticated');
     return;
   }
-  // Prefs hydration (usePreferences) can reach 'ready' before getSession resolves
-  // authReady. Don't regress the boot machine back to 'prefs-loading' in that race —
-  // nothing would advance it to 'ready' again, leaving the app stuck on the splash.
+  // Prefs hydration can reach the flags before getSession resolves authReady.
+  // Don't regress a machine already at 'ready'; otherwise enter prefs-loading
+  // and immediately try to advance in case both boot inputs are already done.
   if (appState !== 'ready') setAppState('prefs-loading');
+  maybeAdvanceToReady();
 }
 
 export function useAuthInit(): AuthActions {

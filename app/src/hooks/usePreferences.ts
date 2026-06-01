@@ -17,7 +17,7 @@ const log = getLogger('usePreferences');
  *  from Supabase, and debounces dirty writes back to both stores. */
 export function usePreferences(): void {
   const setPrefs = useAppStore((s) => s.setPrefs);
-  const setAppState = useAppStore((s) => s.setAppState);
+  const setPrefsHydrated = useAppStore((s) => s.setPrefsHydrated);
   const screen = useAppStore((s) => s.screen);
   const userId = useAppStore((s) => s.session?.user.id ?? null);
   const mutationCount = useAppStore((s) => s.prefsMutationCount);
@@ -63,7 +63,7 @@ export function usePreferences(): void {
       const local = await loadLocalPreferences();
       if (cancelled) return;
       setPrefs(local ?? DEFAULT_PREFERENCES);
-      setAppState('ready');
+      setPrefsHydrated(true);
       log.info('hydration complete');
 
       if (userId) {
