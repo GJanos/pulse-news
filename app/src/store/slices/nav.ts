@@ -60,7 +60,12 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
   },
 
   navigateToDigest: () => {
-    set({ screen: 'digest', dayIndex: 0, digestRefreshNonce: get().digestRefreshNonce + 1 });
+    set({
+      screen: 'digest',
+      dayIndex: 0,
+      article: null,
+      digestRefreshNonce: get().digestRefreshNonce + 1,
+    });
     get().persistNavState();
   },
 

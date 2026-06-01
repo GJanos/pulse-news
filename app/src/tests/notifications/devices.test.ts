@@ -11,15 +11,18 @@ interface FakeClient {
   upsert: jest.Mock;
   update: jest.Mock;
   eq: jest.Mock;
+  select: jest.Mock;
 }
 
 function makeClient(): FakeClient & { from: jest.Mock } {
   const api: FakeClient = {
     upsert: jest.fn().mockResolvedValue({ error: null }),
     update: jest.fn(),
-    eq: jest.fn().mockResolvedValue({ error: null }),
+    eq: jest.fn(),
+    select: jest.fn().mockResolvedValue({ data: [{ id: 'dev-1' }], error: null }),
   };
   api.update.mockReturnValue({ eq: api.eq });
+  api.eq.mockReturnValue({ select: api.select });
   const from = jest.fn().mockReturnValue(api);
   return Object.assign(api, { from });
 }
@@ -87,7 +90,14 @@ describe('linkDeviceToUser', () => {
 
   it('resolves without throwing when the update errors', async () => {
     const client = makeClient();
-    client.eq.mockResolvedValue({ error: { message: 'denied' } });
+    client.select.mockResolvedValue({ data: null, error: { message: 'denied' } });
+    mockGetSupabase.mockReturnValue(client as never);
+    await expect(linkDeviceToUser('dev-1', 'user-9')).resolves.toBeUndefined();
+  });
+
+  it('resolves without throwing when no device row matches (0 rows updated)', async () => {
+    const client = makeClient();
+    client.select.mockResolvedValue({ data: [], error: null });
     mockGetSupabase.mockReturnValue(client as never);
     await expect(linkDeviceToUser('dev-1', 'user-9')).resolves.toBeUndefined();
   });

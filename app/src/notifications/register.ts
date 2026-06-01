@@ -50,8 +50,7 @@ export async function registerForPushNotifications(): Promise<DeviceRegistration
   const cachedToken = storage.getString(TOKEN_KEY) ?? null;
   if (cachedToken !== fcmToken) {
     log.info('FCM token changed — upserting device record');
-    await upsertDevice({ deviceId, fcmToken });
-    storage.set(TOKEN_KEY, fcmToken);
+    await persistToken(deviceId, fcmToken);
   } else {
     log.debug('FCM token unchanged — skipping upsert');
   }
@@ -60,12 +59,17 @@ export async function registerForPushNotifications(): Promise<DeviceRegistration
   return { deviceId, fcmToken };
 }
 
+/** Upsert the device row and cache the token in MMKV — the single write path. */
+async function persistToken(deviceId: string, token: string): Promise<void> {
+  await upsertDevice({ deviceId, fcmToken: token });
+  storage.set(TOKEN_KEY, token);
+}
+
 /** Re-upsert + re-cache when Firebase rotates the token. Returns unsubscribe. */
 export function listenForTokenRefresh(deviceId: string): () => void {
   log.debug(`subscribed to FCM token-refresh events for device ${deviceId.slice(0, 8)}…`);
   return onFcmTokenRefresh(async (newToken: string) => {
     log.info(`FCM token refreshed for device ${deviceId.slice(0, 8)}… — re-upserting`);
-    await upsertDevice({ deviceId, fcmToken: newToken });
-    storage.set(TOKEN_KEY, newToken);
+    await persistToken(deviceId, newToken);
   });
 }

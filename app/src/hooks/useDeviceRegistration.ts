@@ -55,6 +55,14 @@ export function useDeviceRegistration(): void {
       } catch (e) {
         // Push is best-effort — registration failure must not crash the app.
         log.warn(`registerForPushNotifications threw: ${String(e)}`);
+        // Registration threw before reading permission — reflect the real OS
+        // state anyway so the Settings banner isn't stuck on a stale value.
+        try {
+          const enabled = await getNotificationPermission();
+          if (!cancelled) setNotificationsEnabled(enabled);
+        } catch (permErr) {
+          log.warn(`permission read after registration failure failed: ${String(permErr)}`);
+        }
       } finally {
         clearTimeout(timer);
         if (!cancelled) setDeviceReady(true);
@@ -65,7 +73,7 @@ export function useDeviceRegistration(): void {
       if (state !== 'active') return;
       getNotificationPermission()
         .then((enabled) => useAppStore.getState().setNotificationsEnabled(enabled))
-        .catch(() => {});
+        .catch((e: unknown) => log.warn(`foreground permission re-check failed: ${String(e)}`));
     });
 
     return () => {

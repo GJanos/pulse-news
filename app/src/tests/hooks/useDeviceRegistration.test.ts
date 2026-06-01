@@ -38,7 +38,6 @@ beforeEach(() => {
     appState: 'prefs-loading',
     session: null,
     deviceId: null,
-    fcmToken: null,
     notificationsEnabled: false,
     prefsHydrated: false,
     deviceReady: false,
@@ -57,7 +56,15 @@ it('writes registration + notificationsEnabled + deviceReady to the store', asyn
   renderHook(() => useDeviceRegistration());
   await waitFor(() => expect(useAppStore.getState().deviceReady).toBe(true));
   expect(useAppStore.getState().deviceId).toBe('dev-1');
-  expect(useAppStore.getState().fcmToken).toBe('tok-1');
+  expect(useAppStore.getState().notificationsEnabled).toBe(true);
+});
+
+it('still reflects OS permission when registration throws', async () => {
+  mockRegister.registerForPushNotifications.mockRejectedValue(new Error('firebase boom'));
+  mockFcm.getNotificationPermission.mockResolvedValue(true);
+  renderHook(() => useDeviceRegistration());
+  await waitFor(() => expect(useAppStore.getState().deviceReady).toBe(true));
+  expect(useAppStore.getState().deviceId).toBeNull();
   expect(useAppStore.getState().notificationsEnabled).toBe(true);
 });
 

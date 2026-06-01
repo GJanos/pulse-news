@@ -190,4 +190,21 @@ describe('navigateToDigest', () => {
     expect(s.getState().screen).toBe('digest');
     expect(s.getState().dayIndex).toBe(0);
   });
+
+  it('clears an open article so the digest is not hidden behind a stale overlay', () => {
+    const s = makeStore();
+    s.getState().setArticle({
+      h: { title: 'T', summary: 'S', url: 'u' },
+      r: {
+        region: 'Hungary',
+        country: 'HU',
+        code: 'HUN',
+        continent: 'Europe' as const,
+        currency: 'HUF',
+        sources: [],
+      },
+    });
+    s.getState().navigateToDigest();
+    expect(s.getState().article).toBeNull();
+  });
 });

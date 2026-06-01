@@ -37,13 +37,28 @@ export async function upsertDevice({ deviceId, fcmToken, notifyAt }: UpsertParam
   else log.debug(`device ${deviceId.slice(0, 8)}… upserted successfully`);
 }
 
-/** Associate this device with the authenticated user. No-op when unconfigured. */
+/**
+ * Associate this device with the authenticated user. No-op when unconfigured.
+ * `.select()` lets us detect a zero-row update — i.e. the device row does not
+ * exist yet (a prior upsert failed) — and warn instead of logging false success.
+ */
 export async function linkDeviceToUser(deviceId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
-  const { error } = await supabase.from('devices').update({ user_id: userId }).eq('id', deviceId);
-  if (error) log.warn(`linkDeviceToUser failed: ${error.message}`);
-  else log.info(`device ${deviceId.slice(0, 8)}… linked to user ${userId.slice(0, 8)}…`);
+  const { data, error } = await supabase
+    .from('devices')
+    .update({ user_id: userId })
+    .eq('id', deviceId)
+    .select('id');
+  if (error) {
+    log.warn(`linkDeviceToUser failed: ${error.message}`);
+  } else if (!data || data.length === 0) {
+    log.warn(
+      `linkDeviceToUser: no device row for ${deviceId.slice(0, 8)}… — not linked (device may not have registered yet)`,
+    );
+  } else {
+    log.info(`device ${deviceId.slice(0, 8)}… linked to user ${userId.slice(0, 8)}…`);
+  }
 }
 
 /**
