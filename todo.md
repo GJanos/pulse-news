@@ -135,6 +135,16 @@ Allowed — but you need a lawful basis. For product analytics (which articles g
   - Cron side: translate the full digest after fetching, store alongside original in Supabase with a `lang` column on the `digests` table
   - Use DeepL (not Claude, not Mistral) — purpose-built for translation, free up to 500k chars/month, better quality than an LLM for most language pairs
 
+## Slice 6 (app/notifications) deferrals
+
+- Replace the publishable-key direct `devices` upsert with a `register-device`
+  Supabase Edge Function backed by the secret key (RLS hardening). Carried from
+  legacy `register.ts`.
+- iOS push support: re-introduce the stripped `registerDeviceForRemoteMessages`
+  / provisional-permission paths if/when an iOS target is added.
+- Evaluate registering FCM tap handlers exactly once (vs. on each `ready`
+  re-entry) if re-login churn ever causes a stale initial-notification re-navigation.
+
 ---
 
 ## Business Model
