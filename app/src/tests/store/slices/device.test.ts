@@ -23,9 +23,18 @@ function makeSlice(): DeviceSlice {
 }
 
 describe('DeviceSlice', () => {
-  it('initialises notificationsEnabled as false', () => {
+  it('initialises with no identity and notifications disabled', () => {
     const slice = makeSlice();
+    expect(slice.deviceId).toBeNull();
+    expect(slice.fcmToken).toBeNull();
     expect(slice.notificationsEnabled).toBe(false);
+  });
+
+  it('setDeviceRegistration stores deviceId and fcmToken', () => {
+    const slice = makeSlice();
+    slice.setDeviceRegistration({ deviceId: 'dev-1', fcmToken: 'tok-1' });
+    expect(slice.deviceId).toBe('dev-1');
+    expect(slice.fcmToken).toBe('tok-1');
   });
 
   it('setNotificationsEnabled(true) enables notifications', () => {
