@@ -204,29 +204,25 @@ export default function ArticleScreen({
         </Pressable>
 
         <View style={[s.copyRow, { backgroundColor: theme.chip }]}>
-          <PulseIcon name="link" size={13} color={theme.textFaint} strokeWidth={1.8} />
-          <Text
-            numberOfLines={1}
-            style={{
-              flex: 1,
-              fontFamily: font(aes, 'number'),
-              fontSize: 11,
-              color: theme.textFaint,
-            }}
-          >
-            {hostname}
-          </Text>
+          <View style={s.sourceInfo}>
+            <Text
+              numberOfLines={1}
+              style={{
+                flexShrink: 1,
+                fontFamily: font(aes, 'number'),
+                fontSize: 11,
+                color: theme.accent,
+              }}
+            >
+              {hostname}
+            </Text>
+            <PulseIcon name="link" size={13} color={theme.accent} strokeWidth={1.8} />
+          </View>
           <Pressable
             onPress={copyLink}
             accessibilityLabel={copied ? 'Link copied' : 'Copy link'}
             style={[s.copyBtn, { borderColor: copied ? theme.accent : theme.ruleStrong }]}
           >
-            <PulseIcon
-              name={copied ? 'check' : 'copy'}
-              size={13}
-              color={copied ? theme.accent : theme.textDim}
-              strokeWidth={1.8}
-            />
             <Text
               style={{
                 fontFamily: font(aes, 'ui', 600),
@@ -236,6 +232,12 @@ export default function ArticleScreen({
             >
               {copied ? 'Copied' : 'Copy'}
             </Text>
+            <PulseIcon
+              name={copied ? 'check' : 'copy'}
+              size={13}
+              color={copied ? theme.accent : theme.textDim}
+              strokeWidth={1.8}
+            />
           </Pressable>
         </View>
 
@@ -319,6 +321,13 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  sourceInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginRight: 12,
+  },
   swipeHints: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -328,6 +337,7 @@ const s = StyleSheet.create({
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,

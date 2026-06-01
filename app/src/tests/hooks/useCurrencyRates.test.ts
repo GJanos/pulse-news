@@ -10,14 +10,25 @@ global.fetch = mockFetch;
 beforeEach(() => jest.clearAllMocks());
 
 describe('fetchRates', () => {
-  it('returns rates from first URL when it succeeds', async () => {
+  it('returns rates and the payload date from the first URL when it succeeds', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ usd: { eur: 0.9, gbp: 0.8 } }),
+      json: () => Promise.resolve({ date: '2026-06-01', usd: { eur: 0.9, gbp: 0.8 } }),
     });
     const result = await fetchRates('USD', 'latest');
-    expect(result).toEqual({ eur: 0.9, gbp: 0.8 });
+    expect(result?.rates).toEqual({ eur: 0.9, gbp: 0.8 });
+    expect(result?.date).toBe('2026-06-01');
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an empty date when the payload omits one', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ usd: { eur: 0.9 } }),
+    });
+    const result = await fetchRates('USD', 'latest');
+    expect(result?.rates).toEqual({ eur: 0.9 });
+    expect(result?.date).toBe('');
   });
 
   it('falls back to second URL when first returns non-ok', async () => {
@@ -25,7 +36,7 @@ describe('fetchRates', () => {
       .mockResolvedValueOnce({ ok: false, status: 500, json: jest.fn() })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ usd: { eur: 0.9 } }) });
     const result = await fetchRates('USD', 'latest');
-    expect(result).toEqual({ eur: 0.9 });
+    expect(result?.rates).toEqual({ eur: 0.9 });
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
@@ -70,6 +81,24 @@ describe('buildCurrencyRates', () => {
     const result = await buildCurrencyRates(['EUR'], 'USD');
     expect(result['EUR']!.rate).toBeCloseTo(0.9);
     expect(result['EUR']!.changePercent).toBeCloseTo(10);
+  });
+
+  it('anchors yesterday to the latest payload date, not the device clock', async () => {
+    // Guards the CDN-lag regression: when @latest lags the device clock, a
+    // clock-derived yesterday collides with latest and reports a flat 0%.
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ date: '2026-05-31', usd: { eur: 0.9 } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ date: '2026-05-30', usd: { eur: 1.0 } }),
+      });
+    await buildCurrencyRates(['EUR'], 'USD');
+    const yesterdayUrl = mockFetch.mock.calls[1]![0] as string;
+    expect(yesterdayUrl).toContain('2026-05-30');
+    expect(yesterdayUrl).not.toContain('2026-05-31');
   });
 
   it('sets changePercent null when yesterday unavailable (both fallbacks fail)', async () => {

@@ -23,10 +23,16 @@ function currencyUrls(base: string, date: 'latest' | string): [string, string] {
   ];
 }
 
+export interface RateSnapshot {
+  /** Publication date of this snapshot (YYYY-MM-DD), read from the payload. */
+  date: string;
+  rates: Record<string, number>;
+}
+
 export async function fetchRates(
   base: string,
   date: 'latest' | string,
-): Promise<Record<string, number> | null> {
+): Promise<RateSnapshot | null> {
   const key = base.toLowerCase();
   const urls = currencyUrls(base, date);
   for (const url of urls) {
@@ -36,9 +42,14 @@ export async function fetchRates(
         log.warn(`currency fetch failed: HTTP ${res.status} (${url})`);
         continue;
       }
-      const json = (await res.json()) as Record<string, Record<string, number>>;
-      const rates = json[key] ?? null;
-      if (rates) return rates;
+      const json = (await res.json()) as Record<string, unknown>;
+      const rates = json[key];
+      if (rates && typeof rates === 'object') {
+        return {
+          date: typeof json.date === 'string' ? json.date : '',
+          rates: rates as Record<string, number>,
+        };
+      }
     } catch (e) {
       log.warn(`currency fetch threw: ${String(e)} (${url})`);
     }
@@ -46,31 +57,62 @@ export async function fetchRates(
   return null;
 }
 
+/** Returns the YYYY-MM-DD date one day before the given ISO date (UTC). */
+function isoDayBefore(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Exported for unit testing. Fetches today + yesterday rates and builds the CurrencyRate map. */
 export async function buildCurrencyRates(
   codes: string[],
   baseCurrency: string,
 ): Promise<Record<string, CurrencyRate>> {
-  const yesterdayDate = isoDateAtDayIndex(1);
-  log.info(`fetching ${baseCurrency} rates for [${codes.join(', ')}]`);
-  const [today, yesterday] = await Promise.all([
-    fetchRates(baseCurrency, 'latest'),
-    fetchRates(baseCurrency, yesterdayDate),
-  ]);
+  const today = await fetchRates(baseCurrency, 'latest');
   if (!today) {
-    log.warn('today rates unavailable — returning {}');
+    log.warn(`today rates unavailable for ${baseCurrency} — returning {}`);
     return {};
   }
+  // Anchor "yesterday" to the latest snapshot's own publication date rather than
+  // the device clock. The @latest CDN entry can lag the local date by a day, and
+  // a clock-derived yesterday would then resolve to the very same published file
+  // as latest — reporting a flat 0% for every currency. Fall back to the clock
+  // only if the payload carries no usable date.
+  const yesterdayDate = /^\d{4}-\d{2}-\d{2}$/.test(today.date)
+    ? isoDayBefore(today.date)
+    : isoDateAtDayIndex(1);
+  log.info(
+    `fetching ${baseCurrency} rates for [${codes.join(', ')}] (today=${today.date || 'latest'} yesterday=${yesterdayDate})`,
+  );
+  const yesterday = await fetchRates(baseCurrency, yesterdayDate);
+  if (!yesterday) {
+    log.warn(
+      `yesterday (${yesterdayDate}) rates unavailable for ${baseCurrency} — change % will be null`,
+    );
+  }
   const result: Record<string, CurrencyRate> = {};
+  const summary: string[] = [];
   for (const code of codes) {
     if (code === baseCurrency) continue;
     const key = code.toLowerCase();
-    const rate = today[key];
-    if (rate == null) continue;
-    const prevRate = yesterday?.[key] ?? null;
+    const rate = today.rates[key];
+    if (rate == null) {
+      log.warn(`no ${code} (${key}) rate in ${baseCurrency} response — skipping`);
+      continue;
+    }
+    const prevRate = yesterday?.rates[key] ?? null;
     const changePercent = prevRate != null ? ((prevRate - rate) / prevRate) * 100 : null;
+    log.debug(
+      `  ${code}: today=${rate} yesterday=${prevRate ?? 'n/a'} change=${changePercent != null ? changePercent.toFixed(3) + '%' : 'null'}`,
+    );
+    summary.push(`${code}=${changePercent != null ? changePercent.toFixed(2) + '%' : 'n/a'}`);
     result[code] = { rate, changePercent };
   }
+  const withChange = Object.values(result).filter((r) => r.changePercent != null).length;
+  log.info(
+    `${baseCurrency} rates ready: ${Object.keys(result).length} currencies, change data ${withChange}/${Object.keys(result).length} [${summary.join(' ')}]`,
+  );
   return result;
 }
 
@@ -94,10 +136,14 @@ export function useCurrencyRates(
 ): UseCurrencyRatesResult {
   const codesKey = codes.slice().sort().join(',');
   const forcedRef = useRef(false);
+  // React Query retains the last successful `data` even after a query is
+  // disabled, so a hook viewing an older (non-today) digest would otherwise keep
+  // serving today's cached rates. Gate every read on `active` to clear them.
+  const active = enabled && codesKey !== '';
 
   const query = useQuery<Record<string, CurrencyRate>>({
     queryKey: ['currency', baseCurrency, codesKey],
-    enabled: enabled && codesKey !== '',
+    enabled: active,
     staleTime: STALE_MS,
     gcTime: 60 * 60_000,
     queryFn: async () => {
@@ -114,7 +160,7 @@ export function useCurrencyRates(
   }, [enabled, query]);
 
   return {
-    rates: query.data ?? EMPTY_RATES,
+    rates: active ? (query.data ?? EMPTY_RATES) : EMPTY_RATES,
     forceRefresh,
   };
 }
