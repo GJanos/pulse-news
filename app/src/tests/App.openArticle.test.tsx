@@ -23,6 +23,34 @@ jest.mock('@expo-google-fonts/source-serif-4', () => ({}));
 jest.mock('@expo-google-fonts/inter', () => ({}));
 jest.mock('@expo-google-fonts/jetbrains-mono', () => ({}));
 
+// Slice 6 wired the FCM hooks into App.tsx, pulling the native notification
+// boundary into this render test. Stub it out so the import stays parseable
+// and registration is a no-op here.
+jest.mock('@react-native-firebase/messaging', () => ({
+  getMessaging: jest.fn(() => ({})),
+  getToken: jest.fn(),
+  requestPermission: jest.fn(),
+  hasPermission: jest.fn(),
+  onTokenRefresh: jest.fn(),
+  onNotificationOpenedApp: jest.fn(),
+  onMessage: jest.fn(),
+  getInitialNotification: jest.fn(),
+  AuthorizationStatus: { NOT_DETERMINED: 0, DENIED: 1, AUTHORIZED: 2, PROVISIONAL: 3 },
+}));
+jest.mock('expo-notifications', () => ({ setBadgeCountAsync: jest.fn() }));
+jest.mock('../notifications/register', () => ({
+  registerForPushNotifications: jest.fn().mockResolvedValue(null),
+  listenForTokenRefresh: jest.fn(() => jest.fn()),
+}));
+jest.mock('../notifications/fcm', () => ({
+  getNotificationPermission: jest.fn().mockResolvedValue(false),
+  registerNotificationHandlers: jest.fn(() => jest.fn()),
+}));
+jest.mock('../notifications/devices', () => ({
+  linkDeviceToUser: jest.fn().mockResolvedValue(undefined),
+  updateNotifyTime: jest.fn().mockResolvedValue(undefined),
+}));
+
 const HEADLINE = {
   title: 'H',
   summary: 'S',

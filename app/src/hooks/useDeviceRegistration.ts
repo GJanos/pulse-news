@@ -34,6 +34,8 @@ export function useDeviceRegistration(): void {
         setDeviceReady(true);
       }
     }, config.deviceRegistrationTimeoutMs);
+    // Don't keep the event loop (or a Jest worker) alive waiting on the guard.
+    timer.unref?.();
 
     void (async () => {
       try {

@@ -29,6 +29,8 @@ import { useAppStore } from './src/store';
 import { useAppInit } from './src/hooks/useAppInit';
 import { useAuthInit } from './src/hooks/useAuthInit';
 import { usePreferences } from './src/hooks/usePreferences';
+import { useDeviceRegistration } from './src/hooks/useDeviceRegistration';
+import { useNotificationHandlers } from './src/hooks/useNotificationHandlers';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import SplashScreenComponent from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -73,6 +75,8 @@ export default function App(): React.ReactElement {
 
   const actions = useAuthInit();
   usePreferences();
+  useDeviceRegistration();
+  useNotificationHandlers();
 
   useEffect(() => {
     if (appState !== 'booting') {
