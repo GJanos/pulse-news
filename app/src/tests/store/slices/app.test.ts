@@ -53,3 +53,61 @@ describe('app slice — boot state machine', () => {
     expect(b.getState().appState).toBe('booting');
   });
 });
+
+describe('app slice — boot gate', () => {
+  it('starts with flags down', () => {
+    const s = makeStore().getState();
+    expect(s.prefsHydrated).toBe(false);
+    expect(s.deviceReady).toBe(false);
+  });
+
+  it('advances to ready only when prefs-loading AND both flags set', () => {
+    const s = makeStore();
+    s.getState().setAppState('prefs-loading');
+    s.getState().setPrefsHydrated(true);
+    expect(s.getState().appState).toBe('prefs-loading'); // device not ready yet
+    s.getState().setDeviceReady(true);
+    expect(s.getState().appState).toBe('ready');
+  });
+
+  it('does not advance from auth-check even with both flags set', () => {
+    const s = makeStore();
+    s.getState().setAppState('auth-check');
+    s.getState().setPrefsHydrated(true);
+    s.getState().setDeviceReady(true);
+    expect(s.getState().appState).toBe('auth-check');
+  });
+
+  it('maybeAdvanceToReady is a no-op when already unauthenticated', () => {
+    const s = makeStore();
+    s.getState().setAppState('unauthenticated');
+    s.getState().setPrefsHydrated(true);
+    s.getState().setDeviceReady(true);
+    s.getState().maybeAdvanceToReady();
+    expect(s.getState().appState).toBe('unauthenticated');
+  });
+
+  it('advances regardless of which flag lands last (device then prefs)', () => {
+    const s = makeStore();
+    s.getState().setAppState('prefs-loading');
+    s.getState().setDeviceReady(true);
+    expect(s.getState().appState).toBe('prefs-loading'); // prefs not hydrated yet
+    s.getState().setPrefsHydrated(true);
+    expect(s.getState().appState).toBe('ready');
+  });
+
+  it('does not advance when only one flag is set', () => {
+    const s = makeStore();
+    s.getState().setAppState('prefs-loading');
+    s.getState().setDeviceReady(true);
+    expect(s.getState().appState).toBe('prefs-loading');
+  });
+
+  it('setting a flag back to false never advances', () => {
+    const s = makeStore();
+    s.getState().setAppState('prefs-loading');
+    s.getState().setPrefsHydrated(false);
+    s.getState().setDeviceReady(false);
+    expect(s.getState().appState).toBe('prefs-loading');
+  });
+});

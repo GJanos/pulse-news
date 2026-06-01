@@ -45,6 +45,8 @@ beforeEach(() => {
     session: null,
     prefs: DEFAULT_PREFERENCES,
     prefsMutationCount: 0,
+    prefsHydrated: false,
+    deviceReady: true,
   });
   mockLoad.mockResolvedValue(null);
   mockSync.mockResolvedValue(DEFAULT_PREFERENCES);

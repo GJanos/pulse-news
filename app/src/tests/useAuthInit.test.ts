@@ -8,6 +8,8 @@ beforeEach(() => {
     session: null,
     authReady: false,
     isPasswordRecovery: false,
+    prefsHydrated: false,
+    deviceReady: false,
   });
 });
 
@@ -43,5 +45,15 @@ describe('handleAuthReady', () => {
     useAppStore.setState({ session: null, appState: 'ready' });
     handleAuthReady(true);
     expect(useAppStore.getState().appState).toBe('unauthenticated');
+  });
+
+  it('advances straight to ready when prefs + device are already done', () => {
+    useAppStore.setState({
+      session: { user: { id: 'u1', email: 'a@b.com' } } as unknown as Session,
+      prefsHydrated: true,
+      deviceReady: true,
+    });
+    handleAuthReady(true);
+    expect(useAppStore.getState().appState).toBe('ready');
   });
 });

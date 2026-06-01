@@ -73,6 +73,25 @@ const iconBtn = {
   justifyContent: 'center' as const,
 };
 
+/**
+ * Force-refreshes the active digest page whenever the nav slice bumps
+ * `digestRefreshNonce` (e.g. a daily_digest notification tap). Skips the
+ * initial mount so the normal first render isn't double-fetched.
+ */
+export function useDigestRefreshOnNonce(
+  activePageRef: React.RefObject<DigestPageHandle | null>,
+): void {
+  const nonce = useAppStore((s) => s.digestRefreshNonce);
+  const didMount = useRef(false);
+  useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
+    activePageRef.current?.forceRefresh();
+  }, [nonce, activePageRef]);
+}
+
 export default React.memo(function DigestPager({
   dayIndex,
   setDayIndex,
@@ -95,6 +114,7 @@ export default React.memo(function DigestPager({
   const tx = useSharedValue(txFor(dayIndex, maxDayIndex, W));
   const startTx = useSharedValue(txFor(dayIndex, maxDayIndex, W));
   const { getSlotSetter, setActivePage } = usePageRefs<DigestPageHandle>(activePageRef);
+  useDigestRefreshOnNonce(activePageRef);
 
   const skipNextSpring = useRef(false);
   const commitDay = useCallback(

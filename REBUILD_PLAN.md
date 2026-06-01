@@ -158,7 +158,7 @@ Currency rate fetching happens in the UI, not in cron — no `cron/currency` sli
 | 2   | **app/auth-flow** — Supabase auth + login/signup/reset screens + session hook                             | ✓ merged to develop | #9  |
 | 3   | **app/digest-flow** — digest fetching + currency rates + DigestPage + DigestPager + sections              | ✓ merged to develop | #10 |
 | 4   | **app/settings-flow** — Settings screen + region picker + preference editing                              | ✓ merged to develop | #12 |
-| 5   | **app/article** — ArticleScreen + WebBrowser handoff                                                      | pending             |     |
+| 5   | **app/article** — ArticleScreen + WebBrowser handoff                                                      | ✓ merged to develop | #13 |
 | 6   | **app/notifications** — notification registration + deep link parsing + password recovery flow            | pending             |     |
 
 Some files (App.tsx, the store) get touched across multiple slices. That is expected. Each slice adds the parts of those files it needs; it does not rewrite from scratch.
