@@ -2,7 +2,11 @@ import { storage } from '../../storage/mmkv';
 import { DEVICE_ID_KEY, TOKEN_KEY } from '../../notifications/keys';
 import * as fcm from '../../notifications/fcm';
 import * as devices from '../../notifications/devices';
-import { registerForPushNotifications, listenForTokenRefresh } from '../../notifications/register';
+import {
+  getOrCreateDeviceId,
+  registerForPushNotifications,
+  listenForTokenRefresh,
+} from '../../notifications/register';
 
 // fcm is automocked below; loading the real module to build the automock
 // executes its top-level getMessaging() — stub the native boundary so that
@@ -32,6 +36,22 @@ beforeEach(() => {
   mockFcm.requestPushPermission.mockResolvedValue(true);
   mockFcm.getFcmToken.mockResolvedValue('tok-new');
   mockDevices.upsertDevice.mockResolvedValue(undefined);
+});
+
+describe('getOrCreateDeviceId', () => {
+  it('generates and persists a UUID on first call', async () => {
+    expect(storage.getString(DEVICE_ID_KEY)).toBeUndefined();
+    const id = await getOrCreateDeviceId();
+    expect(id).toBe('uuid-generated');
+    expect(storage.getString(DEVICE_ID_KEY)).toBe('uuid-generated');
+  });
+
+  it('returns the persisted UUID without regenerating', async () => {
+    storage.set(DEVICE_ID_KEY, 'uuid-existing');
+    const id = await getOrCreateDeviceId();
+    expect(id).toBe('uuid-existing');
+    expect(storage.getString(DEVICE_ID_KEY)).toBe('uuid-existing');
+  });
 });
 
 describe('registerForPushNotifications', () => {
@@ -76,6 +96,12 @@ describe('registerForPushNotifications', () => {
 });
 
 describe('listenForTokenRefresh', () => {
+  it('returns the unsubscribe handle from onFcmTokenRefresh', () => {
+    const unsub = jest.fn();
+    mockFcm.onFcmTokenRefresh.mockReturnValue(unsub);
+    expect(listenForTokenRefresh('dev-1')).toBe(unsub);
+  });
+
   it('re-upserts and re-caches on rotation', async () => {
     let captured: ((t: string) => Promise<void>) | undefined;
     mockFcm.onFcmTokenRefresh.mockImplementation((cb) => {

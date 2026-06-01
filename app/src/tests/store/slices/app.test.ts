@@ -86,4 +86,28 @@ describe('app slice — boot gate', () => {
     s.getState().maybeAdvanceToReady();
     expect(s.getState().appState).toBe('unauthenticated');
   });
+
+  it('advances regardless of which flag lands last (device then prefs)', () => {
+    const s = makeStore();
+    s.getState().setAppState('prefs-loading');
+    s.getState().setDeviceReady(true);
+    expect(s.getState().appState).toBe('prefs-loading'); // prefs not hydrated yet
+    s.getState().setPrefsHydrated(true);
+    expect(s.getState().appState).toBe('ready');
+  });
+
+  it('does not advance when only one flag is set', () => {
+    const s = makeStore();
+    s.getState().setAppState('prefs-loading');
+    s.getState().setDeviceReady(true);
+    expect(s.getState().appState).toBe('prefs-loading');
+  });
+
+  it('setting a flag back to false never advances', () => {
+    const s = makeStore();
+    s.getState().setAppState('prefs-loading');
+    s.getState().setPrefsHydrated(false);
+    s.getState().setDeviceReady(false);
+    expect(s.getState().appState).toBe('prefs-loading');
+  });
 });

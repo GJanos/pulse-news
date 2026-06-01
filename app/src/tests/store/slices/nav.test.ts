@@ -160,6 +160,10 @@ describe('nav slice — restoreNavState', () => {
 });
 
 describe('navigateToDigest', () => {
+  it('starts with a zero refresh nonce', () => {
+    expect(makeStore().getState().digestRefreshNonce).toBe(0);
+  });
+
   it('sets digest screen, resets day index, and bumps the refresh nonce', () => {
     const s = makeStore();
     s.getState().setScreen('settings');
@@ -169,5 +173,21 @@ describe('navigateToDigest', () => {
     expect(s.getState().screen).toBe('digest');
     expect(s.getState().dayIndex).toBe(0);
     expect(s.getState().digestRefreshNonce).toBe(before + 1);
+  });
+
+  it('bumps the nonce monotonically on repeated calls', () => {
+    const s = makeStore();
+    s.getState().navigateToDigest();
+    s.getState().navigateToDigest();
+    s.getState().navigateToDigest();
+    expect(s.getState().digestRefreshNonce).toBe(3);
+  });
+
+  it('still resets the day index when already on the digest screen', () => {
+    const s = makeStore();
+    s.getState().setDayIndex(4);
+    s.getState().navigateToDigest();
+    expect(s.getState().screen).toBe('digest');
+    expect(s.getState().dayIndex).toBe(0);
   });
 });
