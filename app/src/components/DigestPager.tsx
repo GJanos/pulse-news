@@ -28,6 +28,15 @@ interface Props {
 const SPRING = { damping: 28, stiffness: 220, mass: 0.9 } as const;
 const WINDOW = 1;
 
+/**
+ * `historyDays: N` means N days back from today, so the oldest reachable page is
+ * day-index N (today is 0). Clamped to >= 0. Total page slots are this + 1
+ * (today + N prior days), i.e. N ⇒ N+1 pages.
+ */
+export function maxDayIndexFor(historyDays: number): number {
+  return Math.max(0, historyDays);
+}
+
 function txFor(dayIndex: number, maxDayIndex: number, W: number): number {
   'worklet';
   return -(maxDayIndex - dayIndex) * W;
@@ -103,7 +112,7 @@ export default React.memo(function DigestPager({
 
   const theme = useAppStore((s) => THEMES[s.prefs.theme]);
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
-  const maxDayIndex = useAppStore((s) => Math.max(0, s.prefs.historyDays - 1));
+  const maxDayIndex = useAppStore((s) => maxDayIndexFor(s.prefs.historyDays));
   const showGlobalHeadlines = useAppStore((s) => s.prefs.showGlobalHeadlines);
   const selectedRegions = useAppStore((s) => s.prefs.selectedRegions);
 

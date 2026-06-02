@@ -37,6 +37,7 @@ export function useDigestPageData(date: string, isToday: boolean) {
   const globalHeadlineCount = useAppStore((s) => s.prefs.globalHeadlineCount);
   const showCurrencyRates = useAppStore((s) => s.prefs.showCurrencyRates);
   const baseCurrency = useAppStore((s) => s.prefs.baseCurrency);
+  const screen = useAppStore((s) => s.screen);
 
   const {
     digest,
@@ -68,9 +69,14 @@ export function useDigestPageData(date: string, isToday: boolean) {
       Array.from(new Set(visible.map((b) => b.region.currency).filter((c) => c !== baseCurrency))),
     [visible, baseCurrency],
   );
+  // Pause the currency query while Settings is open so toggling a region (which
+  // mutates the derived currencyCodes / React Query key) does not trigger a
+  // mid-interaction refetch. Legacy settled only on leaving Settings; the query
+  // fires once on return and skips the fetch entirely if codes are unchanged and
+  // data is still within STALE_MS.
   const { rates: currencyRates, forceRefresh: forceRefreshCurrency } = useCurrencyRates(
     currencyCodes,
-    showCurrencyRates && isToday,
+    showCurrencyRates && isToday && screen !== 'settings',
     baseCurrency,
   );
 

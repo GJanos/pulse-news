@@ -31,7 +31,7 @@ describe('useCurrencyRates (hook)', () => {
   it('does not leak cached rates when later disabled (viewing an older digest)', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ date: '2026-06-01', usd: { eur: 0.9 } }),
+      json: () => Promise.resolve([{ date: '2026-06-01', base: 'USD', quote: 'EUR', rate: 0.9 }]),
     });
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) => useCurrencyRates(['EUR'], enabled, 'USD'),
