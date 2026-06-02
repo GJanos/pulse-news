@@ -19,7 +19,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   showCurrencyRates: false,
   showGlobalHeadlines: true,
   globalHeadlineCount: 5,
-  theme: 'light',
+  theme: 'dark',
   aesthetic: 'editorial',
   updatedAt: new Date(0).toISOString(),
 };

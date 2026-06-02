@@ -180,6 +180,7 @@ const s = StyleSheet.create({
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: -3,
   },
   headlineRow: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 18 },
   numberCol: { width: 32, paddingTop: 2 },

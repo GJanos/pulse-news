@@ -4,7 +4,7 @@ import { useGlobalHeadlines } from './useGlobalHeadlines';
 import { useCurrencyRates } from './useCurrencyRates';
 import { sortedSelectedRegions } from '../data';
 import { useAppStore } from '../store';
-import { config } from '../config';
+import { config, globalHeadlineMax } from '../config';
 import type { DailyDigest, Region, Headline } from '../types';
 
 export interface VisibleBucket {
@@ -26,6 +26,14 @@ export function buildVisibleBuckets(
       return { region: r, items: (digest.regions[r.region] ?? []).slice(0, count) };
     })
     .filter((b) => b.items.length > 0);
+}
+
+/**
+ * Defensive cap so a previously-stored global count larger than the cron's
+ * `globalHeadlineMax` can't over-request more stories than the cron produces.
+ */
+export function clampGlobalHeadlineCount(stored: number, max: number): number {
+  return Math.min(stored, max);
 }
 
 export function useDigestPageData(date: string, isToday: boolean) {
@@ -57,7 +65,8 @@ export function useDigestPageData(date: string, isToday: boolean) {
   );
 
   const visibleGlobalHeadlines = useMemo(
-    () => globalHeadlines.slice(0, globalHeadlineCount),
+    () =>
+      globalHeadlines.slice(0, clampGlobalHeadlineCount(globalHeadlineCount, globalHeadlineMax)),
     [globalHeadlines, globalHeadlineCount],
   );
 

@@ -21,6 +21,7 @@ import Stepper from '../components/Stepper';
 import PulseIcon from '../components/Icon';
 import { useSlideIn } from '../hooks/useSlideIn';
 import { useSwipe } from '../hooks/useSwipe';
+import { globalHeadlineMax } from '../config';
 import type { UserPreferences } from '../types';
 
 interface Props {
@@ -194,7 +195,8 @@ export default function SettingsScreen({ onLogout, onDeleteAccount }: Props): Re
                   aes={aes}
                   value={prefs.globalHeadlineCount}
                   min={1}
-                  max={10}
+                  max={globalHeadlineMax}
+                  icons
                   onChange={(v) => setPref('globalHeadlineCount', v)}
                 />
               </View>

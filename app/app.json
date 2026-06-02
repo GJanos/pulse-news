@@ -1,21 +1,16 @@
 {
   "expo": {
-    "name": "Pulse",
+    "name": "Pulse News",
     "slug": "pulse-news",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-dark.png",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#fafaf7"
-    },
     "assetBundlePatterns": ["**/*"],
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#fafaf7"
+        "foregroundImage": "./assets/adaptive-icon-dark.png",
+        "backgroundColor": "#111110"
       },
       "googleServicesFile": "./google-services.json",
       "package": "com.pulse.news",
@@ -39,7 +34,21 @@
           }
         }
       ],
-      "@react-native-firebase/messaging"
+      "@react-native-firebase/messaging",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#111110",
+          "image": "./assets/splash-icon-dark.png",
+          "imageWidth": 300
+        }
+      ]
     ],
     "extra": {}
   }

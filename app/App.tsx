@@ -71,7 +71,7 @@ export default function App(): React.ReactElement {
   const screen = useAppStore((s) => s.screen);
   const isPasswordRecovery = useAppStore((s) => s.isPasswordRecovery);
   const themeId = useAppStore((s) => s.prefs.theme);
-  const theme = THEMES[themeId] ?? THEMES.light;
+  const theme = THEMES[themeId] ?? THEMES.dark;
 
   const actions = useAuthInit();
   usePreferences();
