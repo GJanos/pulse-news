@@ -103,6 +103,15 @@ export async function dispatchFcm(
   const log = getLogger('notify');
   if (tokens.length === 0) return { sent: 0, total: 0 };
 
+  // One physical device can own several `devices` rows — the per-install UUID
+  // (PK) regenerates across reinstalls while Google Play Services keeps handing
+  // back the same FCM token, and `fcm_token` has no unique constraint. Sending
+  // the deduplicated set guarantees one notification per device.
+  const uniqueTokens = Array.from(new Set(tokens));
+  if (uniqueTokens.length < tokens.length) {
+    log.info(`Deduplicated ${tokens.length - uniqueTokens.length} repeated token(s)`);
+  }
+
   const messaging = initMessaging();
   const db = buildClient();
   const data: Record<string, string> = { type: 'daily_digest' };
@@ -110,7 +119,7 @@ export async function dispatchFcm(
 
   let totalSent = 0;
   const staleTokens: string[] = [];
-  const batches = chunkTokens(tokens);
+  const batches = chunkTokens(uniqueTokens);
 
   for (let index = 0; index < batches.length; index += 1) {
     const batchTokens = batches[index]!;
@@ -146,7 +155,7 @@ export async function dispatchFcm(
     else log.info(`Removed ${staleTokens.length} stale tokens`);
   }
 
-  return { sent: totalSent, total: tokens.length };
+  return { sent: totalSent, total: uniqueTokens.length };
 }
 
 /** Send notifications to all registered devices. Used by the local cron runner for testing. */

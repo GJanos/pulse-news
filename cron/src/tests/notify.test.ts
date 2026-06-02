@@ -202,6 +202,23 @@ describe('dispatchFcm', () => {
     expect(mockSendEachForMulticast).not.toHaveBeenCalled();
   });
 
+  it('deduplicates repeated tokens so one device is notified once', async () => {
+    // A single physical device can own multiple `devices` rows (per-install UUID
+    // regenerates across reinstalls while the FCM token survives), so the same
+    // token arrives several times. Each token must be sent at most once.
+    mockSendEachForMulticast.mockResolvedValueOnce({
+      successCount: 2,
+      responses: [{ error: null }, { error: null }, { error: null }],
+    });
+
+    const result = await dispatchFcm(['dup', 'dup', 'unique'], 'Hungary');
+
+    expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+      expect.objectContaining({ tokens: ['dup', 'unique'] }),
+    );
+    expect(result).toEqual({ sent: 2, total: 2 });
+  });
+
   it('calls sendEachForMulticast with tokens, notification body, and data', async () => {
     mockSendEachForMulticast.mockResolvedValueOnce({
       successCount: 2,
