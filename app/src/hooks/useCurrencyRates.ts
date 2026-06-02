@@ -15,12 +15,21 @@ export interface CurrencyRate {
 
 const EMPTY_RATES: Record<string, CurrencyRate> = {};
 
-function currencyUrls(base: string, date: 'latest' | string): [string, string] {
-  const key = base.toLowerCase();
-  return [
-    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${date}/v1/currencies/${key}.json`,
-    `https://${date}.currency-api.pages.dev/v1/currencies/${key}.json`,
-  ];
+/** Single-origin, keyless, ECB-backed. EUR-based but honors an arbitrary `base`. */
+const FRANKFURTER_BASE = 'https://api.frankfurter.dev/v2/rates';
+
+/** One element of a Frankfurter v2 `/rates` array response. */
+interface FrankfurterQuote {
+  date: string;
+  base: string;
+  quote: string;
+  rate: number;
+}
+
+function currencyUrl(base: string, codes: string[], date: 'latest' | string): string {
+  const quotes = codes.map((c) => c.toUpperCase()).join(',');
+  const datePart = date === 'latest' ? '' : `date=${date}&`;
+  return `${FRANKFURTER_BASE}?${datePart}base=${base.toUpperCase()}&quotes=${quotes}`;
 }
 
 export interface RateSnapshot {
@@ -31,30 +40,33 @@ export interface RateSnapshot {
 
 export async function fetchRates(
   base: string,
+  codes: string[],
   date: 'latest' | string,
 ): Promise<RateSnapshot | null> {
-  const key = base.toLowerCase();
-  const urls = currencyUrls(base, date);
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        log.warn(`currency fetch failed: HTTP ${res.status} (${url})`);
-        continue;
-      }
-      const json = (await res.json()) as Record<string, unknown>;
-      const rates = json[key];
-      if (rates && typeof rates === 'object') {
-        return {
-          date: typeof json.date === 'string' ? json.date : '',
-          rates: rates as Record<string, number>,
-        };
-      }
-    } catch (e) {
-      log.warn(`currency fetch threw: ${String(e)} (${url})`);
+  const url = currencyUrl(base, codes, date);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      log.warn(`currency fetch failed: HTTP ${res.status} (${url})`);
+      return null;
     }
+    const json = (await res.json()) as FrankfurterQuote[];
+    if (!Array.isArray(json)) {
+      log.warn(`currency fetch returned a non-array payload (${url})`);
+      return null;
+    }
+    // Reduce [{date, base, quote, rate}, …] → { date, rates: { QUOTE: rate } }.
+    const rates: Record<string, number> = {};
+    for (const row of json) {
+      if (row && typeof row.quote === 'string' && typeof row.rate === 'number') {
+        rates[row.quote.toUpperCase()] = row.rate;
+      }
+    }
+    return { date: json[0]?.date ?? '', rates };
+  } catch (e) {
+    log.warn(`currency fetch threw: ${String(e)} (${url})`);
+    return null;
   }
-  return null;
 }
 
 /** Returns the YYYY-MM-DD date one day before the given ISO date (UTC). */
@@ -69,7 +81,13 @@ export async function buildCurrencyRates(
   codes: string[],
   baseCurrency: string,
 ): Promise<Record<string, CurrencyRate>> {
-  const today = await fetchRates(baseCurrency, 'latest');
+  // Frankfurter never returns base==quote; keep it out of the requested quotes.
+  const baseUpper = baseCurrency.toUpperCase();
+  const quoteCodes = codes.filter((c) => c.toUpperCase() !== baseUpper);
+  // Nothing to quote (every requested code is the base) — skip the round-trip
+  // and avoid an empty `quotes=` request that would pull the full rate table.
+  if (quoteCodes.length === 0) return {};
+  const today = await fetchRates(baseCurrency, quoteCodes, 'latest');
   if (!today) {
     log.warn(`today rates unavailable for ${baseCurrency} — returning {}`);
     return {};
@@ -85,7 +103,7 @@ export async function buildCurrencyRates(
   log.info(
     `fetching ${baseCurrency} rates for [${codes.join(', ')}] (today=${today.date || 'latest'} yesterday=${yesterdayDate})`,
   );
-  const yesterday = await fetchRates(baseCurrency, yesterdayDate);
+  const yesterday = await fetchRates(baseCurrency, quoteCodes, yesterdayDate);
   if (!yesterday) {
     log.warn(
       `yesterday (${yesterdayDate}) rates unavailable for ${baseCurrency} — change % will be null`,
@@ -94,8 +112,8 @@ export async function buildCurrencyRates(
   const result: Record<string, CurrencyRate> = {};
   const summary: string[] = [];
   for (const code of codes) {
-    if (code === baseCurrency) continue;
-    const key = code.toLowerCase();
+    if (code.toUpperCase() === baseUpper) continue;
+    const key = code.toUpperCase();
     const rate = today.rates[key];
     if (rate == null) {
       log.warn(`no ${code} (${key}) rate in ${baseCurrency} response — skipping`);

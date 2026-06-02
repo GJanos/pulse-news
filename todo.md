@@ -2,10 +2,30 @@
 
 ## V1
 
-- settings saved too agressively
-- app name back to pulse news
-- make default app theme to black
-- make loading screen when app start (not splash screen) default black
+Remaining V1 polish/behavior, grouped into 3 slices.
+
+### Slice 1 — Currency rates & data freshness
+
+- **Live rates via Frankfurter v2** — replace `@fawazahmed0/currency-api` (jsDelivr/pages.dev) in `app/src/hooks/useCurrencyRates.ts` with `https://api.frankfurter.dev/v2` (no key, ECB-backed). Frankfurter is EUR-based: pass `base=<baseCurrency>` + quote symbols. Keep today-vs-yesterday % change (dated endpoint for prior day).
+- **Stop over-eager fetch/save** — refetch prices (and flush prefs) only when the selected region/currency set actually changes, like legacy — not on every settings tweak. Reconcile React Query key + `usePreferences` debounced flush.
+- **Empty-digest force refresh** — an empty "today" must not be cached in a way that blocks refetch; force-refresh and notification tap must always repull. Check `useDigest` / `storage/digests.ts`.
+- **History-days off-by-one** — `historyDays: N` should mean N days back from today → today + N pages (`7` ⇒ 8 pages). Currently N total pages.
+
+### Slice 2 — Defaults, branding & settings wiring
+
+- **App name → "Pulse News"** (currently "Pulse" in `app/app.json`).
+- **Default theme → Dark** (`DEFAULT_PREFERENCES.theme`, currently `light`).
+- **App-start loading screen → Dark** (boot/native-splash bg `#fafaf7`; distinct from the post-auth JS SplashScreen).
+- **Clamp global headline count** to the shared `cron.api.ranking.global.count` — the Settings stepper currently exceeds it.
+- **Global-section stepper spacing** — buttons as close to the number as the "Headlines per region" stepper.
+- **Region label: keep `code` option** (decision: keep both flag + code). When showing the ISO code only, nudge it a few px left.
+
+### Slice 3 — Navigation, gestures & UI polish
+
+- **Source ↔ open-icon spacing** on digest entries — a few px gap to match the article screen, **including global top headlines** (`GlobalSection`, `RegionSection`).
+- **Android system nav-bar regression** — buttons show by default; restore legacy swipe-to-reveal (immersive/hidden).
+- **Screen-switch logging** — restore the gentle legacy log line on screen changes (`logger` + `nav` slice).
+- **Swipe right→left on Today opens Settings** via the existing slide-in animation (`useSwipe`).
 
 ### Deployment
 
@@ -26,17 +46,9 @@
 
 ### Bugs
 
-- [ ] Force refresh not allowed in empty digests page — empty today should not be cached
+- [ ] slow rendering of digest screen top navigation headline
+
 - [ ] Notifications are often missed due to Android issues
-- [x] Currency rates are showing bad values — root cause was the refactor pairing `@latest`
-      against a device-clock "yesterday"; when the CDN `@latest` edge lags a day they resolve to
-      the same published file → flat 0%. Fixed by anchoring "yesterday" to the `date` field in the
-      `latest` payload (`useCurrencyRates.buildCurrencyRates`). Also restored the legacy two-line
-      `CurrencyChip` (extracted to `components/CurrencyChip.tsx`, colored ↑/↓ arrows, dash for sub-0.005%).
-- [x] Currency rates leaked onto non-today digests — React Query retains disabled-query data;
-      `useCurrencyRates` now returns `{}` whenever the query is inactive.
-- [x] Jump modal "Global" row used `textDim`/`text` after the refactor — restored to legacy `theme.accent`
-      (icon + label) in `components/JumpModal.tsx`.
 
 ### UI & Polish
 

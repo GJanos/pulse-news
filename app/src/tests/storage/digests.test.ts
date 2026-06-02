@@ -100,6 +100,43 @@ describe('loadDailyDigest — today', () => {
   });
 });
 
+// ── loadDailyDigest — empty today does not block refetch ─────────────
+// Regression guard (Slice 1, item 3): an empty "today" must never be cached
+// in a way that prevents a later repull, and forceRefresh must always re-pull.
+
+describe('loadDailyDigest — empty today does not block refetch', () => {
+  it('a region with no remote row is never cached, so the next load refetches', async () => {
+    const chain = mockSupabase([]); // Supabase returns no row for the region
+    const first = await loadDailyDigest(TODAY, ['Hungary'], { staleMinutes: 60 });
+    // absent from the digest and never written to MMKV → nothing to poison
+    expect(first.regions['Hungary']).toBeUndefined();
+    expect(storage.getString(`pulse.digest.v1::${TODAY}::Hungary`)).toBeUndefined();
+    // still treated as stale (uncached) on the next load → Supabase queried again
+    await loadDailyDigest(TODAY, ['Hungary'], { staleMinutes: 60 });
+    expect(chain.in).toHaveBeenCalledTimes(2);
+  });
+
+  it('forceRefresh (staleMinutes: 0) repulls a previously cached today region', async () => {
+    // A region cached on an earlier load (cachedAt in the past), as in the real
+    // forceRefresh path. staleMinutes:0 makes any prior cache stale → repull.
+    storage.set(
+      `pulse.digest.v1::${TODAY}::Hungary`,
+      JSON.stringify({
+        region: 'Hungary',
+        date: TODAY,
+        headlines: [{ title: 'cached', summary: 's', url: 'u' }],
+        cachedAt: new Date(Date.now() - 60_000).toISOString(),
+      }),
+    );
+    const chain = mockSupabase([
+      { region: 'Hungary', payload: { headlines: [{ title: 'fresh', summary: 's', url: 'u' }] } },
+    ]);
+    const result = await loadDailyDigest(TODAY, ['Hungary'], { staleMinutes: 0 });
+    expect(chain.in).toHaveBeenCalledWith('region', ['Hungary']);
+    expect(result.regions['Hungary']![0]!.title).toBe('fresh');
+  });
+});
+
 describe('loadDailyDigest — past date', () => {
   it('cache hit — immutable, no Supabase call', async () => {
     saveLocalRegionDigest('Hungary', PAST, [{ title: 'Past', summary: 's', url: 'u' }]);
