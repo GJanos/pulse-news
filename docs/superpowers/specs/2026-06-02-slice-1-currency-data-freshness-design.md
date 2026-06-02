@@ -11,16 +11,16 @@ Post-parity V1 polish. Four related changes in the digest data layer, grouped in
 
 **Files:** `app/src/hooks/useCurrencyRates.ts` (+ tests)
 
-Replace the `@fawazahmed0/currency-api` source (jsDelivr CDN + `currency-api.pages.dev` mirror) with Frankfurter — keyless, ECB-backed, supports an arbitrary base.
+Replace the `@fawazahmed0/currency-api` source (jsDelivr CDN + `currency-api.pages.dev` mirror) with the Frankfurter **v2** API — keyless, ECB-backed, supports an arbitrary base. (v2 verified against the live API; v1 remains supported but v2 is the current docs.)
 
-- Today: `GET https://api.frankfurter.dev/v1/latest?base=<BASE>&symbols=<csv>`
-- Prior day: `GET https://api.frankfurter.dev/v1/<yesterdayDate>?base=<BASE>&symbols=<csv>`
+- Today: `GET https://api.frankfurter.dev/v2/rates?base=<BASE>&quotes=<csv>`
+- Prior day: `GET https://api.frankfurter.dev/v2/rates?date=<yesterdayDate>&base=<BASE>&quotes=<csv>`
 - `<BASE>` = uppercase `baseCurrency`; `<csv>` = comma-joined uppercase requested codes.
-- Response shape: `{ amount: 1, base: "USD", date: "YYYY-MM-DD", rates: { GBP: 0.74, HUF: 304.65, … } }` — flat map, uppercase ISO keys.
+- Response shape: an **array** of `{ date, base, quote, rate }` objects, e.g. `[{ "date":"2026-06-02","base":"USD","quote":"GBP","rate":0.74273 }, …]`. Uppercase ISO quote codes. `base` is honored; `date` is the actual published date for the requested day.
 
 Changes to the hook:
 
-- Rewrite `fetchRates(base, date)` to call the Frankfurter URL and return `{ date, rates }` from the flat `rates` object. Drop the nested `json[base]` lookup, the lowercase-key handling, and the second mirror (Frankfurter is single-origin).
+- Rewrite `fetchRates(base, date)` to call the v2 URL and reduce the array into `{ date, rates }`, where `rates` is a `quote → rate` map and `date` is the first element's `date` (`''` if the array is empty). Drop the nested `json[base]` lookup, the lowercase-key handling, and the second mirror (Frankfurter is single-origin).
 - `buildCurrencyRates` keeps its current structure: fetch today, anchor "yesterday" to today's published `date` (falling back to the clock only if `date` is absent), fetch prior day, compute `changePercent = ((prev - rate) / prev) * 100`.
 - Codes lookup becomes uppercase (`code.toUpperCase()` against `rates`) instead of lowercase.
 - `STALE_MS` (5 min) and the `useCurrencyRates` query/`forceRefresh` surface are unchanged.
@@ -67,7 +67,7 @@ Action: add a regression test proving an empty "today" digest does not poison th
 
 ## Testing
 
-- `useCurrencyRates`: Frankfurter URL construction (base + symbols, today + dated), flat-response parsing, uppercase mapping, `changePercent` math, missing-rate skip, yesterday-date anchoring.
+- `useCurrencyRates`: Frankfurter v2 URL construction (base + quotes, today + dated), array-response reduction to a `quote → rate` map, uppercase mapping, `changePercent` math, missing-rate skip, yesterday-date anchoring.
 - `useDigestPageData`: currency query disabled while `screen === 'settings'`, re-enabled on return; codes settle to final set.
 - `useDigest`/`digests`: empty-today does not block force refresh.
 - `DigestPager`: page count = `historyDays + 1`.
