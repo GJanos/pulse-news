@@ -27,9 +27,14 @@ import type { UserPreferences } from '../types';
 interface Props {
   onLogout: () => void;
   onDeleteAccount: () => Promise<string | null>;
+  embedded?: boolean;
 }
 
-export default function SettingsScreen({ onLogout, onDeleteAccount }: Props): React.ReactElement {
+export default function SettingsScreen({
+  onLogout,
+  onDeleteAccount,
+  embedded = false,
+}: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
   const prefs = useAppStore((s) => s.prefs);
   const session = useAppStore((s) => s.session);
@@ -42,6 +47,7 @@ export default function SettingsScreen({ onLogout, onDeleteAccount }: Props): Re
 
   const { slideAnim, dismiss } = useSlideIn(() => setScreen('digest'));
   const panHandlers = useSwipe(undefined, dismiss);
+  const handleBack = embedded ? () => setScreen('digest') : dismiss;
   const [deleting, setDeleting] = useState(false);
 
   const confirmDelete = (): void => {
@@ -69,21 +75,27 @@ export default function SettingsScreen({ onLogout, onDeleteAccount }: Props): Re
 
   return (
     <Animated.View
-      style={[
-        StyleSheet.absoluteFill,
-        {
-          backgroundColor: theme.bg,
-          zIndex: 50,
-          transform: [{ translateX: slideAnim }],
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-        },
-      ]}
-      {...panHandlers}
+      style={
+        embedded
+          ? // embedded inside the pager, which already lives inside App's SafeAreaView —
+            // don't re-apply insets, and no slide transform (the pager owns the motion)
+            { flex: 1, backgroundColor: theme.bg }
+          : [
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: theme.bg,
+                zIndex: 50,
+                transform: [{ translateX: slideAnim }],
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+              },
+            ]
+      }
+      {...(embedded ? {} : panHandlers)}
     >
       <View style={[s.header, { backgroundColor: theme.bg, borderBottomColor: theme.rule }]}>
         <Pressable
-          onPress={dismiss}
+          onPress={handleBack}
           style={[s.backBtn, { backgroundColor: theme.chip }]}
           hitSlop={6}
           accessibilityLabel="Back"

@@ -25,5 +25,6 @@ module.exports = {
     '^react-native-pressable-scale$': '<rootDir>/__mocks__/react-native-pressable-scale.ts',
     '^react-native-svg$': '<rootDir>/__mocks__/react-native-svg.ts',
     '^react-native-safe-area-context$': '<rootDir>/__mocks__/react-native-safe-area-context.ts',
+    '^expo-navigation-bar$': '<rootDir>/__mocks__/expo-navigation-bar.ts',
   },
 };

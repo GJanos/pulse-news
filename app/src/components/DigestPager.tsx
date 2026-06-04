@@ -1,18 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useWindowDimensions, View, Text, Pressable, StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import React, { useCallback, useEffect, useRef } from 'react';
+import {
+  useWindowDimensions,
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+} from 'react-native';
 import { PressableScale } from 'react-native-pressable-scale';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  cancelAnimation,
-  runOnJS,
-} from 'react-native-reanimated';
 import { DigestPage, type DigestPageHandle } from './DigestPage';
 import PulseMark from './PulseMark';
 import PulseIcon from './Icon';
-import { THEMES, AESTHETICS, font } from '../themes';
+import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes';
 import { isoDateAtDayIndex, formatLongDate } from '../data';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
@@ -20,26 +21,42 @@ import type { Headline, Region } from '../types';
 interface Props {
   dayIndex: number;
   setDayIndex: (n: number) => void;
-  onOpenSettings: () => void;
+  settingsSlot: React.ReactNode;
   onOpenArticle: (h: Headline, r: Region) => void;
   activePageRef: React.RefObject<DigestPageHandle | null>;
 }
 
-const SPRING = { damping: 28, stiffness: 220, mass: 0.9 } as const;
 const WINDOW = 1;
 
 /**
  * `historyDays: N` means N days back from today, so the oldest reachable page is
- * day-index N (today is 0). Clamped to >= 0. Total page slots are this + 1
- * (today + N prior days), i.e. N ⇒ N+1 pages.
+ * day-index N (today is 0). Clamped to >= 0. Total day pages are this + 1
+ * (today + N prior days), i.e. N ⇒ N+1 day pages.
  */
 export function maxDayIndexFor(historyDays: number): number {
   return Math.max(0, historyDays);
 }
 
-function txFor(dayIndex: number, maxDayIndex: number, W: number): number {
-  'worklet';
-  return -(maxDayIndex - dayIndex) * W;
+/**
+ * The pager is a single horizontal paging ScrollView laid out left→right as
+ * `[oldest day] … [today] [settings]`. These pure helpers map between a
+ * day-index / the settings screen and the scroll page index they occupy.
+ */
+export function pageForDay(dayIndex: number, maxDayIndex: number): number {
+  return maxDayIndex - dayIndex;
+}
+
+export function settingsPage(maxDayIndex: number): number {
+  return maxDayIndex + 1;
+}
+
+export type PagerTarget = { kind: 'settings' } | { kind: 'day'; dayIndex: number };
+
+/** Resolve which logical destination a settled scroll page corresponds to. */
+export function targetForPage(page: number, maxDayIndex: number): PagerTarget {
+  if (page >= settingsPage(maxDayIndex)) return { kind: 'settings' };
+  const dayIndex = Math.max(0, Math.min(maxDayIndex, maxDayIndex - page));
+  return { kind: 'day', dayIndex };
 }
 
 function usePageRefs<T>(activeRef: React.RefObject<T | null>) {
@@ -101,10 +118,171 @@ export function useDigestRefreshOnNonce(
   }, [nonce, activePageRef]);
 }
 
+/** Per-page header. Each page in the strip carries its own header so it slides with the page. */
+const DayHeader = React.memo(function DayHeader({
+  dayIndex,
+  maxDayIndex,
+  theme,
+  aes,
+  canJump,
+  onJump,
+  onOpenSettings,
+  onSetDay,
+}: {
+  dayIndex: number;
+  maxDayIndex: number;
+  theme: Theme;
+  aes: Aesthetic;
+  canJump: boolean;
+  onJump: () => void;
+  onOpenSettings: () => void;
+  onSetDay: (n: number) => void;
+}) {
+  const isToday = dayIndex === 0;
+  const fmt = formatLongDate(isoDateAtDayIndex(dayIndex));
+
+  return (
+    <View style={[styles.header, { backgroundColor: theme.bg }]}>
+      <View style={styles.headerTop}>
+        <View style={styles.wordmark}>
+          <PulseMark size={22} color={theme.text} accent={theme.accent} />
+          <Text
+            style={{
+              fontFamily: font(aes, 'title', 700),
+              fontSize: 22,
+              lineHeight: 22,
+              letterSpacing: -0.4,
+              color: theme.text,
+              marginLeft: 8,
+            }}
+          >
+            Pulse
+          </Text>
+          <Text
+            style={{
+              fontFamily: font(aes, 'eyebrow', 600),
+              fontSize: 9,
+              lineHeight: 10,
+              letterSpacing: 1.6,
+              color: theme.accent,
+              marginLeft: 8,
+              textTransform: 'uppercase',
+            }}
+          >
+            Daily
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row' }}>
+          {canJump && (
+            <Pressable
+              onPress={onJump}
+              style={iconBtn}
+              hitSlop={6}
+              accessibilityLabel="Jump to region"
+            >
+              <PulseIcon name="list-ul" size={18} color={theme.textDim} />
+            </Pressable>
+          )}
+          <Pressable
+            onPress={onOpenSettings}
+            style={iconBtn}
+            hitSlop={6}
+            accessibilityLabel="Settings"
+          >
+            <PulseIcon name="settings" size={18} color={theme.textDim} />
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.navRow}>
+        {dayIndex < maxDayIndex ? (
+          <PressableScale
+            onPress={() => onSetDay(dayIndex + 1)}
+            accessibilityLabel="Older day"
+            activeScale={0.9}
+            style={iconBtn}
+          >
+            <PulseIcon name="arrow-left" size={18} color={theme.textDim} />
+          </PressableScale>
+        ) : (
+          <View style={iconBtn} />
+        )}
+
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text
+            style={{
+              fontFamily: font(aes, 'eyebrow', 600),
+              fontSize: 9.5,
+              lineHeight: 10,
+              letterSpacing: 1.7,
+              color: isToday ? theme.accent : theme.textFaint,
+              marginBottom: 4,
+              textTransform: 'uppercase',
+            }}
+          >
+            {isToday ? 'Today' : `${dayIndex} ${dayIndex === 1 ? 'day' : 'days'} ago`}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text
+              style={{
+                fontFamily: font(aes, 'title', 600),
+                fontSize: 18,
+                lineHeight: 18,
+                letterSpacing: -0.2,
+                color: theme.text,
+              }}
+            >
+              {fmt.wd}, {fmt.mo} {fmt.day}
+            </Text>
+            {!isToday && (
+              <PressableScale
+                onPress={() => onSetDay(0)}
+                accessibilityLabel="Jump to today"
+                activeScale={0.92}
+                style={{
+                  marginLeft: 10,
+                  backgroundColor: theme.accentSoft,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 999,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: font(aes, 'ui', 600),
+                    fontSize: 11,
+                    color: theme.accent,
+                    letterSpacing: -0.05,
+                  }}
+                >
+                  Today
+                </Text>
+              </PressableScale>
+            )}
+          </View>
+        </View>
+
+        {dayIndex > 0 ? (
+          <PressableScale
+            onPress={() => onSetDay(dayIndex - 1)}
+            accessibilityLabel="Newer day"
+            activeScale={0.9}
+            style={iconBtn}
+          >
+            <PulseIcon name="arrow-right" size={18} color={theme.textDim} />
+          </PressableScale>
+        ) : (
+          <View style={iconBtn} />
+        )}
+      </View>
+    </View>
+  );
+});
+
 export default React.memo(function DigestPager({
   dayIndex,
   setDayIndex,
-  onOpenSettings,
+  settingsSlot,
   onOpenArticle,
   activePageRef,
 }: Props) {
@@ -115,227 +293,109 @@ export default React.memo(function DigestPager({
   const maxDayIndex = useAppStore((s) => maxDayIndexFor(s.prefs.historyDays));
   const showGlobalHeadlines = useAppStore((s) => s.prefs.showGlobalHeadlines);
   const selectedRegions = useAppStore((s) => s.prefs.selectedRegions);
+  const screen = useAppStore((s) => s.screen);
+  const setScreen = useAppStore((s) => s.setScreen);
 
-  const isToday = dayIndex === 0;
-  const date = useMemo(() => isoDateAtDayIndex(dayIndex), [dayIndex]);
-  const fmt = useMemo(() => formatLongDate(date), [date]);
-
-  const tx = useSharedValue(txFor(dayIndex, maxDayIndex, W));
-  const startTx = useSharedValue(txFor(dayIndex, maxDayIndex, W));
   const { getSlotSetter, setActivePage } = usePageRefs<DigestPageHandle>(activePageRef);
   useDigestRefreshOnNonce(activePageRef);
 
-  const skipNextSpring = useRef(false);
-  const commitDay = useCallback(
-    (idx: number) => {
-      skipNextSpring.current = true;
-      setDayIndex(idx);
-    },
-    [setDayIndex],
-  );
+  const scrollRef = useRef<ScrollView>(null);
+  // Page the strip is currently settled on. Initialised from the first-render
+  // store state so the position-sync effect is a no-op on mount.
+  const initialPage = useRef(
+    screen === 'settings' ? settingsPage(maxDayIndex) : pageForDay(dayIndex, maxDayIndex),
+  ).current;
+  const currentPage = useRef(initialPage);
+  const didLayout = useRef(false);
 
+  // Keep activePageRef pointed at the active day so notification refreshes hit the right page.
   useEffect(() => {
     setActivePage(dayIndex);
-    if (skipNextSpring.current) {
-      skipNextSpring.current = false;
-      return;
-    }
-    cancelAnimation(tx);
-    tx.value = withSpring(txFor(dayIndex, maxDayIndex, W), SPRING);
-  }, [dayIndex, maxDayIndex, W, setActivePage]); // tx is a Reanimated shared value and excluded from deps
+  }, [dayIndex, setActivePage]);
 
-  const pan = Gesture.Pan()
-    .activeOffsetX([-12, 12])
-    .failOffsetY([-15, 15])
-    .onStart(() => {
-      cancelAnimation(tx);
-      startTx.value = tx.value;
-    })
-    .onUpdate((e) => {
-      let next = startTx.value + e.translationX;
-      const leftBound = txFor(0, maxDayIndex, W);
-      const rightBound = 0;
-      if (next > rightBound) next = rightBound + (next - rightBound) * 0.35;
-      if (next < leftBound) next = leftBound + (next - leftBound) * 0.35;
-      tx.value = next;
-    })
-    .onEnd((e) => {
-      const vx = e.velocityX;
-      const dx = e.translationX;
-      const threshold = W * 0.22;
-      const velocityTrigger = 600;
-      let target = dayIndex;
-      if (dx > threshold || vx > velocityTrigger) target = Math.min(dayIndex + 1, maxDayIndex);
-      else if (dx < -threshold || vx < -velocityTrigger) target = Math.max(dayIndex - 1, 0);
-      tx.value = withSpring(txFor(target, maxDayIndex, W), { ...SPRING, velocity: vx });
-      if (target !== dayIndex) runOnJS(commitDay)(target);
-    });
+  // Drive the scroll position from store changes (header buttons, hardware back,
+  // notification navigation). Guarded so it ignores echoes of the user's own scroll.
+  useEffect(() => {
+    const target =
+      screen === 'settings' ? settingsPage(maxDayIndex) : pageForDay(dayIndex, maxDayIndex);
+    if (currentPage.current === target) return;
+    currentPage.current = target;
+    scrollRef.current?.scrollTo({ x: target * W, animated: true });
+  }, [screen, dayIndex, maxDayIndex, W]);
 
-  const stripStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
+  // When the user settles on a page, reflect it back into the store. Setting
+  // currentPage *before* the store write means the sync effect above no-ops.
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const page = Math.round(e.nativeEvent.contentOffset.x / W);
+      if (page === currentPage.current) return;
+      currentPage.current = page;
+      const target = targetForPage(page, maxDayIndex);
+      if (target.kind === 'settings') {
+        if (screen !== 'settings') setScreen('settings');
+      } else {
+        if (screen !== 'digest') setScreen('digest');
+        if (target.dayIndex !== dayIndex) setDayIndex(target.dayIndex);
+      }
+    },
+    [W, maxDayIndex, screen, dayIndex, setScreen, setDayIndex],
+  );
 
-  const totalSlots = maxDayIndex + 1;
+  const onJump = useCallback(() => activePageRef.current?.openJumpModal(), [activePageRef]);
+  const onOpenSettings = useCallback(() => setScreen('settings'), [setScreen]);
+
   const canJump = selectedRegions.length + (showGlobalHeadlines ? 1 : 0) > 1;
+  const showSettings = dayIndex === 0 || screen === 'settings';
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <View style={[styles.header, { backgroundColor: theme.bg }]}>
-        <View style={styles.headerTop}>
-          <View style={styles.wordmark}>
-            <PulseMark size={22} color={theme.text} accent={theme.accent} />
-            <Text
-              style={{
-                fontFamily: font(aes, 'title', 700),
-                fontSize: 22,
-                lineHeight: 22,
-                letterSpacing: -0.4,
-                color: theme.text,
-                marginLeft: 8,
-              }}
-            >
-              Pulse
-            </Text>
-            <Text
-              style={{
-                fontFamily: font(aes, 'eyebrow', 600),
-                fontSize: 9,
-                lineHeight: 10,
-                letterSpacing: 1.6,
-                color: theme.accent,
-                marginLeft: 8,
-                textTransform: 'uppercase',
-              }}
-            >
-              Daily
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row' }}>
-            {canJump && (
-              <Pressable
-                onPress={() => activePageRef.current?.openJumpModal()}
-                style={iconBtn}
-                hitSlop={6}
-                accessibilityLabel="Jump to region"
-              >
-                <PulseIcon name="list-ul" size={18} color={theme.textDim} />
-              </Pressable>
-            )}
-            <Pressable
-              onPress={onOpenSettings}
-              style={iconBtn}
-              hitSlop={6}
-              accessibilityLabel="Settings"
-            >
-              <PulseIcon name="settings" size={18} color={theme.textDim} />
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.navRow}>
-          {dayIndex < maxDayIndex ? (
-            <PressableScale
-              onPress={() => setDayIndex(dayIndex + 1)}
-              accessibilityLabel="Older day"
-              activeScale={0.9}
-              style={iconBtn}
-            >
-              <PulseIcon name="arrow-left" size={18} color={theme.textDim} />
-            </PressableScale>
-          ) : (
-            <View style={iconBtn} />
-          )}
-
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text
-              style={{
-                fontFamily: font(aes, 'eyebrow', 600),
-                fontSize: 9.5,
-                lineHeight: 10,
-                letterSpacing: 1.7,
-                color: isToday ? theme.accent : theme.textFaint,
-                marginBottom: 4,
-                textTransform: 'uppercase',
-              }}
-            >
-              {isToday ? 'Today' : `${dayIndex} ${dayIndex === 1 ? 'day' : 'days'} ago`}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text
-                style={{
-                  fontFamily: font(aes, 'title', 600),
-                  fontSize: 18,
-                  lineHeight: 18,
-                  letterSpacing: -0.2,
-                  color: theme.text,
-                }}
-              >
-                {fmt.wd}, {fmt.mo} {fmt.day}
-              </Text>
-              {!isToday && (
-                <PressableScale
-                  onPress={() => setDayIndex(0)}
-                  accessibilityLabel="Jump to today"
-                  activeScale={0.92}
-                  style={{
-                    marginLeft: 10,
-                    backgroundColor: theme.accentSoft,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 999,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: font(aes, 'ui', 600),
-                      fontSize: 11,
-                      color: theme.accent,
-                      letterSpacing: -0.05,
-                    }}
-                  >
-                    Today
-                  </Text>
-                </PressableScale>
-              )}
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+      onMomentumScrollEnd={onMomentumScrollEnd}
+      contentOffset={{ x: initialPage * W, y: 0 }}
+      // Android can ignore the initial contentOffset prop; re-apply once on first layout.
+      onLayout={() => {
+        if (didLayout.current) return;
+        didLayout.current = true;
+        scrollRef.current?.scrollTo({ x: currentPage.current * W, animated: false });
+      }}
+      style={{ flex: 1, backgroundColor: theme.bg }}
+    >
+      {Array.from({ length: maxDayIndex + 1 }, (_, p) => {
+        const pageDayIndex = maxDayIndex - p;
+        const inWindow = Math.abs(pageDayIndex - dayIndex) <= WINDOW;
+        return (
+          <View key={pageDayIndex} style={{ width: W }}>
+            <DayHeader
+              dayIndex={pageDayIndex}
+              maxDayIndex={maxDayIndex}
+              theme={theme}
+              aes={aes}
+              canJump={canJump}
+              onJump={onJump}
+              onOpenSettings={onOpenSettings}
+              onSetDay={setDayIndex}
+            />
+            <View style={{ flex: 1 }}>
+              {inWindow ? (
+                <DigestPage
+                  ref={getSlotSetter(pageDayIndex)}
+                  dayIndex={pageDayIndex}
+                  active={pageDayIndex === dayIndex}
+                  onOpenArticle={onOpenArticle}
+                />
+              ) : null}
             </View>
           </View>
-
-          {dayIndex > 0 ? (
-            <PressableScale
-              onPress={() => setDayIndex(dayIndex - 1)}
-              accessibilityLabel="Newer day"
-              activeScale={0.9}
-              style={iconBtn}
-            >
-              <PulseIcon name="arrow-right" size={18} color={theme.textDim} />
-            </PressableScale>
-          ) : (
-            <View style={iconBtn} />
-          )}
-        </View>
+        );
+      })}
+      {/* settings page — rightmost slot, mounted only when adjacent/open */}
+      <View key="settings" style={{ width: W }}>
+        {showSettings ? settingsSlot : null}
       </View>
-
-      <GestureDetector gesture={pan}>
-        <View style={{ flex: 1, overflow: 'hidden' }}>
-          <Animated.View style={[styles.strip, { width: W * totalSlots }, stripStyle]}>
-            {Array.from({ length: totalSlots }, (_, i) => {
-              const pageDayIndex = maxDayIndex - i;
-              const inWindow = Math.abs(pageDayIndex - dayIndex) <= WINDOW;
-              return (
-                <View key={pageDayIndex} style={{ width: W }}>
-                  {inWindow ? (
-                    <DigestPage
-                      ref={getSlotSetter(pageDayIndex)}
-                      dayIndex={pageDayIndex}
-                      active={pageDayIndex === dayIndex}
-                      onOpenArticle={onOpenArticle}
-                    />
-                  ) : null}
-                </View>
-              );
-            })}
-          </Animated.View>
-        </View>
-      </GestureDetector>
-    </View>
+    </ScrollView>
   );
 });
 
@@ -344,5 +404,4 @@ const styles = StyleSheet.create({
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wordmark: { flexDirection: 'row', alignItems: 'center' },
   navRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center' },
-  strip: { flex: 1, flexDirection: 'row' },
 });

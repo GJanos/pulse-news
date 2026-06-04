@@ -185,6 +185,6 @@ const s = StyleSheet.create({
   container: { marginTop: 16 },
   numberCol: { width: 32, paddingTop: 2 },
   content: { flex: 1 },
-  sourceRow: { flexDirection: 'row', alignItems: 'center' },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   regionPill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
 });

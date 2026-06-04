@@ -45,6 +45,7 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
   digestRefreshNonce: 0,
 
   setScreen: (screen) => {
+    log.debug(`screen ${get().screen} → ${screen}`);
     set({ screen });
     get().persistNavState();
   },
@@ -60,6 +61,7 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
   },
 
   navigateToDigest: () => {
+    log.debug('screen → digest (notification)');
     set({
       screen: 'digest',
       dayIndex: 0,

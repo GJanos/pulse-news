@@ -2,32 +2,10 @@
 
 ## V1
 
-Remaining V1 polish/behavior, grouped into 3 slices.
-
-### Slice 1 — Currency rates & data freshness
-
-- **Live rates via Frankfurter v2** — replace `@fawazahmed0/currency-api` (jsDelivr/pages.dev) in `app/src/hooks/useCurrencyRates.ts` with `https://api.frankfurter.dev/v2` (no key, ECB-backed). Frankfurter is EUR-based: pass `base=<baseCurrency>` + quote symbols. Keep today-vs-yesterday % change (dated endpoint for prior day).
-- **Stop over-eager fetch/save** — refetch prices (and flush prefs) only when the selected region/currency set actually changes, like legacy — not on every settings tweak. Reconcile React Query key + `usePreferences` debounced flush.
-- **Empty-digest force refresh** — an empty "today" must not be cached in a way that blocks refetch; force-refresh and notification tap must always repull. Check `useDigest` / `storage/digests.ts`.
-- **History-days off-by-one** — `historyDays: N` should mean N days back from today → today + N pages (`7` ⇒ 8 pages). Currently N total pages.
-
-### Slice 2 — Defaults, branding & settings wiring
-
-- **App name → "Pulse News"** (currently "Pulse" in `app/app.json`).
-- **Default theme → Dark** (`DEFAULT_PREFERENCES.theme`, currently `light`).
-- **App-start loading screen → Dark** (boot/native-splash bg `#fafaf7`; distinct from the post-auth JS SplashScreen).
-- **Clamp global headline count** to the shared `cron.api.ranking.global.count` — the Settings stepper currently exceeds it.
-- **Global-section stepper spacing** — buttons as close to the number as the "Headlines per region" stepper.
-- **Region label: keep `code` option** (decision: keep both flag + code). When showing the ISO code only, nudge it a few px left.
-
-### Slice 3 — Navigation, gestures & UI polish
-
-- **Source ↔ open-icon spacing** on digest entries — a few px gap to match the article screen, **including global top headlines** (`GlobalSection`, `RegionSection`).
-- **Android system nav-bar regression** — buttons show by default; restore legacy swipe-to-reveal (immersive/hidden).
-- **Screen-switch logging** — restore the gentle legacy log line on screen changes (`logger` + `nav` slice).
-- **Swipe right→left on Today opens Settings** via the existing slide-in animation (`useSwipe`).
-
-- refactor costs logging in cron
+- no sufficient logs when changing and swiping between digest screens
+- i need images in the digest page, to increase user retention
+- ip: Run /install-github-app to tag @claude right from your Github issues and
+  PRs
 
 ### Deployment
 
@@ -49,7 +27,6 @@ Remaining V1 polish/behavior, grouped into 3 slices.
 ### Bugs
 
 - [ ] slow rendering of digest screen top navigation headline
-
 - [ ] Notifications are often missed due to Android issues
 
 ### UI & Polish
@@ -68,46 +45,12 @@ Remaining V1 polish/behavior, grouped into 3 slices.
 
 - [ ] Swiping needs to be adjusted again
 
+- [ ] refactor costs logging in cron. Have normal log lines like before, but they also need to be refactored, but the main thing is I would love for a run to create a large json object of the data being logged in a format that is transmittable via http, but we kind of already have that, just it needs improvements
+
 ### Deferred / Research
 
-- [ ] Recurd user usage statistics for metrics and analysis _(see GDPR section under Go Live)_ #referencing the gdpr section
-- [ ] Look at claude graphy plugin — codebase graph knowledge builder
+- [ ] Record user usage statistics for metrics and analysis _(see GDPR section under Go Live)_ #referencing the gdpr section
 - [ ] Start using bun as a package manager
-- [ ] "Lets brainstorm on this: There are auto-commit Stop hooks, git guard PreToolUse hooks, and claude-mem's own summary generation — but
-
-  nothing that combines git diff + claude-mem summaries → proposed CLAUDE.md diffs.
-
-  It doesn't exist as a ready-made skill, but it's a very buildable, well-scoped idea. Here's how it would
-
-  actually work:
-
-  The Stop hook script would:
-
-  Run git diff HEAD (uncommitted) + git log --oneline origin/main..HEAD (unpushed commits) to get what
-
-  changed
-
-  Hit claude-mem's HTTP API on localhost:37777 to pull recent session summaries
-
-  Feed both into a local LLM prompt (or Claude SDK if you're okay with that): "Given these code changes and
-
-  what was done this session, what additions/modifications to CLAUDE.md would be useful?"
-
-  Output a unified diff to stdout — which the Stop hook can display for review before you accept/reject
-
-  The tricky parts:
-
-  You'd want the hook to present the diff interactively rather than auto-apply, so it needs to write to a
-
-  temp file and open it, or print clearly to terminal
-
-  CLAUDE.md proposals need to avoid being redundant/noisy — the LLM prompt needs a "only suggest if
-
-  meaningfully new" constraint
-
-  Deciding which of the three git scopes to use (uncommitted / since last commit / since last merge) probably
-
-  wants a config flag"
 
 ---
 
@@ -161,16 +104,6 @@ Allowed — but you need a lawful basis. For product analytics (which articles g
 - [ ] **Language / translation** — setting for returned article language; default English (no translation)
   - Cron side: translate the full digest after fetching, store alongside original in Supabase with a `lang` column on the `digests` table
   - Use DeepL (not Claude, not Mistral) — purpose-built for translation, free up to 500k chars/month, better quality than an LLM for most language pairs
-
-## Slice 6 (app/notifications) deferrals
-
-- Replace the publishable-key direct `devices` upsert with a `register-device`
-  Supabase Edge Function backed by the secret key (RLS hardening). Carried from
-  legacy `register.ts`.
-- iOS push support: re-introduce the stripped `registerDeviceForRemoteMessages`
-  / provisional-permission paths if/when an iOS target is added.
-- Evaluate registering FCM tap handlers exactly once (vs. on each `ready`
-  re-entry) if re-login churn ever causes a stale initial-notification re-navigation.
 
 ---
 
