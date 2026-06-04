@@ -1,4 +1,4 @@
-import { buildVisibleBuckets } from '../../hooks/useDigestPageData';
+import { buildVisibleBuckets, clampGlobalHeadlineCount } from '../../hooks/useDigestPageData';
 import type { DailyDigest, Headline } from '../../types';
 
 jest.mock('../../data', () => ({
@@ -167,6 +167,22 @@ describe('buildVisibleBuckets — items content', () => {
       region: 'Hungary',
       currency: 'Hungary_CUR',
     });
+  });
+});
+
+// ── global headline count clamp ───────────────────────────────────────
+
+describe('clampGlobalHeadlineCount', () => {
+  it('clamps a stored value above the max down to the max', () => {
+    expect(clampGlobalHeadlineCount(10, 5)).toBe(5);
+  });
+
+  it('passes through a stored value within the cap', () => {
+    expect(clampGlobalHeadlineCount(3, 5)).toBe(3);
+  });
+
+  it('passes through a stored value equal to the cap', () => {
+    expect(clampGlobalHeadlineCount(5, 5)).toBe(5);
   });
 });
 

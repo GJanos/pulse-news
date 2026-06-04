@@ -95,8 +95,8 @@ describe('PrefsSlice', () => {
     expect(DEFAULT_PREFERENCES.selectedRegions).toHaveLength(5);
   });
 
-  it('DEFAULT_PREFERENCES theme is light', () => {
-    expect(DEFAULT_PREFERENCES.theme).toBe('light');
+  it('DEFAULT_PREFERENCES theme is dark', () => {
+    expect(DEFAULT_PREFERENCES.theme).toBe('dark');
   });
 
   it('DEFAULT_PREFERENCES aesthetic is editorial', () => {
