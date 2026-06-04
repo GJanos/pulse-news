@@ -7,9 +7,10 @@ import { getLogger } from '../src/logging';
  * Account lifecycle endpoint — no CRON_SECRET required, these are user-initiated.
  *
  * POST   /api/account  — register: upsert the device record linked to the
- *                         authenticated user. Body: { deviceId, fcmToken, notifyAt? }
+ *                         authenticated user. Body: { deviceId, fcmToken }
  *                         Call this on sign-in / sign-up so the device row always
- *                         carries the current auth.users foreign key.
+ *                         carries the current auth.users foreign key. notify_at is
+ *                         owned by the app's updateNotifyTime, never written here.
  *
  * DELETE /api/account  — delete: permanently remove the authenticated user.
  *                         auth.admin.deleteUser triggers the schema cascade:
@@ -54,7 +55,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 interface RegisterBody {
   deviceId: string;
   fcmToken: string;
-  notifyAt?: string | null;
 }
 
 async function handleRegister(
@@ -73,19 +73,17 @@ async function handleRegister(
 
   log.info(`Registering device ${body.deviceId} for user ${userId}`);
 
-  const { error } = await db.from('devices').upsert(
-    {
-      id: body.deviceId,
-      fcm_token: body.fcmToken,
-      notify_at: body.notifyAt ?? null,
-      user_id: userId,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'id' },
-  );
+  // register_device upserts by the stable per-install id and evicts any other row
+  // holding this FCM token (reinstall ghost), guaranteeing one row per device.
+  // notify_at is intentionally not passed — registration must not clobber it.
+  const { error } = await db.rpc('register_device', {
+    p_id: body.deviceId,
+    p_token: body.fcmToken,
+    p_user_id: userId,
+  });
 
   if (error) {
-    log.error(`Device upsert failed for ${userId}: ${error.message}`);
+    log.error(`Device registration failed for ${userId}: ${error.message}`);
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: false, error: error.message }));
     return;
