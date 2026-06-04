@@ -15,12 +15,10 @@ const { getLogger: mockGetLogger } = jest.requireMock('../../../logger') as {
   getLogger: jest.Mock;
 };
 let logDebug: jest.Mock;
-let logWarn: jest.Mock;
 
 beforeAll(() => {
-  const logMock = mockGetLogger.mock.results[0]?.value as { debug: jest.Mock; warn: jest.Mock };
+  const logMock = mockGetLogger.mock.results[0]?.value as { debug: jest.Mock };
   logDebug = logMock.debug;
-  logWarn = logMock.warn;
 });
 
 jest.mock('../../../storage/mmkv', () => ({

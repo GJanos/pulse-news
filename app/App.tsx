@@ -200,17 +200,17 @@ export function RootScreens({
         <DigestPager
           dayIndex={dayIndex}
           setDayIndex={setDayIndex}
-          onOpenSettings={() => setScreen('settings')}
+          settingsSlot={
+            <SettingsScreen
+              embedded
+              onLogout={() => {
+                void actions.signOut();
+              }}
+              onDeleteAccount={actions.deleteAccount}
+            />
+          }
           onOpenArticle={onOpenArticle}
           activePageRef={activePageRef}
-        />
-      )}
-      {screen === 'settings' && (
-        <SettingsScreen
-          onLogout={() => {
-            void actions.signOut();
-          }}
-          onDeleteAccount={actions.deleteAccount}
         />
       )}
       {article && (
