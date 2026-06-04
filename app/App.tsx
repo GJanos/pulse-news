@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, BackHandler } from 'react-native';
+import { View, StyleSheet, BackHandler, Platform } from 'react-native';
+import { NavigationBar } from 'expo-navigation-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -83,6 +84,11 @@ export default function App(): React.ReactElement {
       void SplashScreen.hideAsync();
     }
   }, [appState]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    NavigationBar.setHidden(true);
+  }, []);
 
   return (
     <GestureHandlerRootView style={s.root}>

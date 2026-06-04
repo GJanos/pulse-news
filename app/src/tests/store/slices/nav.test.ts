@@ -1,6 +1,28 @@
 import { create } from 'zustand';
 import { createNavSlice, NAV_KEY, NAV_TTL_MS, type NavSlice } from '../../../store/slices/nav';
 
+jest.mock('../../../logger', () => ({
+  getLogger: jest.fn(() => ({
+    debug: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+  })),
+}));
+
+// nav.ts calls getLogger once at module load time — capture the result before clearAllMocks runs.
+const { getLogger: mockGetLogger } = jest.requireMock('../../../logger') as {
+  getLogger: jest.Mock;
+};
+let logDebug: jest.Mock;
+let logWarn: jest.Mock;
+
+beforeAll(() => {
+  const logMock = mockGetLogger.mock.results[0]?.value as { debug: jest.Mock; warn: jest.Mock };
+  logDebug = logMock.debug;
+  logWarn = logMock.warn;
+});
+
 jest.mock('../../../storage/mmkv', () => ({
   storage: {
     getString: jest.fn<string | undefined, [string]>(),
@@ -37,6 +59,37 @@ function savedNav(overrides: Partial<{ screen: string; dayIndex: number; savedAt
 beforeEach(() => {
   jest.clearAllMocks();
   mockStorage.getString.mockReturnValue(undefined);
+});
+
+describe('nav slice — logging', () => {
+  it('setScreen logs the transition from the previous screen', () => {
+    const s = makeStore();
+    s.getState().setScreen('settings');
+    expect(logDebug).toHaveBeenCalledWith('screen digest → settings');
+  });
+
+  it('setScreen still updates the screen after logging', () => {
+    const s = makeStore();
+    s.getState().setScreen('settings');
+    expect(s.getState().screen).toBe('settings');
+  });
+
+  it('navigateToDigest logs the notification-driven navigation', () => {
+    const s = makeStore();
+    s.getState().setScreen('settings');
+    logDebug.mockClear();
+    s.getState().navigateToDigest();
+    expect(logDebug).toHaveBeenCalledWith('screen → digest (notification)');
+  });
+
+  it('navigateToDigest still resets to digest after logging', () => {
+    const s = makeStore();
+    s.getState().setScreen('settings');
+    s.getState().setDayIndex(3);
+    s.getState().navigateToDigest();
+    expect(s.getState().screen).toBe('digest');
+    expect(s.getState().dayIndex).toBe(0);
+  });
 });
 
 describe('nav slice — initial state', () => {

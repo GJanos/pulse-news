@@ -37,6 +37,33 @@ export function maxDayIndexFor(historyDays: number): number {
   return Math.max(0, historyDays);
 }
 
+export type SwipeOutcome = 'older' | 'newer' | 'open-settings' | 'none';
+
+/** Pure helper — determines the outcome of a completed pan gesture. Extracted for unit testability. */
+export function resolveSwipe({
+  dayIndex,
+  dx,
+  vx,
+  maxDayIndex,
+  threshold,
+  velocityTrigger,
+}: {
+  dayIndex: number;
+  dx: number;
+  vx: number;
+  maxDayIndex: number;
+  threshold: number;
+  velocityTrigger: number;
+}): SwipeOutcome {
+  if (dx > threshold || vx > velocityTrigger) {
+    return dayIndex < maxDayIndex ? 'older' : 'none';
+  }
+  if (dx < -threshold || vx < -velocityTrigger) {
+    return dayIndex === 0 ? 'open-settings' : 'newer';
+  }
+  return 'none';
+}
+
 function txFor(dayIndex: number, maxDayIndex: number, W: number): number {
   'worklet';
   return -(maxDayIndex - dayIndex) * W;
@@ -162,13 +189,23 @@ export default React.memo(function DigestPager({
     .onEnd((e) => {
       const vx = e.velocityX;
       const dx = e.translationX;
-      const threshold = W * 0.22;
-      const velocityTrigger = 600;
-      let target = dayIndex;
-      if (dx > threshold || vx > velocityTrigger) target = Math.min(dayIndex + 1, maxDayIndex);
-      else if (dx < -threshold || vx < -velocityTrigger) target = Math.max(dayIndex - 1, 0);
-      tx.value = withSpring(txFor(target, maxDayIndex, W), { ...SPRING, velocity: vx });
-      if (target !== dayIndex) runOnJS(commitDay)(target);
+      const outcome = resolveSwipe({
+        dayIndex,
+        dx,
+        vx,
+        maxDayIndex,
+        threshold: W * 0.22,
+        velocityTrigger: 600,
+      });
+      if (outcome === 'open-settings') {
+        tx.value = withSpring(txFor(dayIndex, maxDayIndex, W), { ...SPRING, velocity: vx });
+        runOnJS(onOpenSettings)();
+      } else {
+        const target =
+          outcome === 'older' ? dayIndex + 1 : outcome === 'newer' ? dayIndex - 1 : dayIndex;
+        tx.value = withSpring(txFor(target, maxDayIndex, W), { ...SPRING, velocity: vx });
+        if (target !== dayIndex) runOnJS(commitDay)(target);
+      }
     });
 
   const stripStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));

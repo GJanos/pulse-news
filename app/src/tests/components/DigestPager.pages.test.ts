@@ -1,4 +1,4 @@
-import { maxDayIndexFor } from '../../components/DigestPager';
+import { maxDayIndexFor, resolveSwipe } from '../../components/DigestPager';
 
 /** Page slots rendered by the pager = oldest day-index + 1 (today + N prior days). */
 const slotCount = (historyDays: number) => maxDayIndexFor(historyDays) + 1;
@@ -36,5 +36,43 @@ describe('page slot count (maxDayIndex + 1)', () => {
 
   it('clamps negatives → 1 page', () => {
     expect(slotCount(-5)).toBe(1);
+  });
+});
+
+describe('resolveSwipe', () => {
+  const THRESH = 80;
+  const VT = 600;
+  const base = { threshold: THRESH, velocityTrigger: VT, maxDayIndex: 7 };
+
+  it('left swipe at dayIndex 0 → open-settings', () => {
+    expect(resolveSwipe({ dayIndex: 0, dx: -100, vx: 0, ...base })).toBe('open-settings');
+  });
+
+  it('fast left velocity at dayIndex 0 → open-settings', () => {
+    expect(resolveSwipe({ dayIndex: 0, dx: 0, vx: -700, ...base })).toBe('open-settings');
+  });
+
+  it('left swipe at dayIndex > 0 → newer', () => {
+    expect(resolveSwipe({ dayIndex: 3, dx: -100, vx: 0, ...base })).toBe('newer');
+  });
+
+  it('right swipe at dayIndex < maxDayIndex → older', () => {
+    expect(resolveSwipe({ dayIndex: 3, dx: 100, vx: 0, ...base })).toBe('older');
+  });
+
+  it('fast right velocity → older', () => {
+    expect(resolveSwipe({ dayIndex: 2, dx: 0, vx: 700, ...base })).toBe('older');
+  });
+
+  it('right swipe at maxDayIndex → none (clamped)', () => {
+    expect(resolveSwipe({ dayIndex: 7, dx: 100, vx: 0, ...base })).toBe('none');
+  });
+
+  it('sub-threshold right → none', () => {
+    expect(resolveSwipe({ dayIndex: 3, dx: 40, vx: 0, ...base })).toBe('none');
+  });
+
+  it('sub-threshold left → none', () => {
+    expect(resolveSwipe({ dayIndex: 3, dx: -40, vx: 0, ...base })).toBe('none');
   });
 });

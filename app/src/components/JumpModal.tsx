@@ -71,7 +71,9 @@ export default function JumpModal({ open, onClose, visible, hasGlobal, jumpTo }:
               ]}
               accessibilityLabel="Jump to Global Headlines"
             >
-              <PulseIcon name="globe" size={15} color={theme.accent} />
+              <View style={styles.globeIcon}>
+                <PulseIcon name="globe" size={15} color={theme.accent} />
+              </View>
               <Text
                 style={{
                   fontFamily: font(aes, 'ui', 500),
@@ -147,6 +149,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  globeIcon: { width: 22, alignItems: 'center' },
   codePill: {
     width: 28,
     height: 18,
