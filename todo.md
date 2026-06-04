@@ -27,7 +27,7 @@ Remaining V1 polish/behavior, grouped into 3 slices.
 - **Screen-switch logging** — restore the gentle legacy log line on screen changes (`logger` + `nav` slice).
 - **Swipe right→left on Today opens Settings** via the existing slide-in animation (`useSwipe`).
 
-- one device can somehow receive multiple notifications fix that
+- refactor costs logging in cron
 
 ### Deployment
 
