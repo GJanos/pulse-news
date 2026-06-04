@@ -55,6 +55,7 @@ export function resolveSwipe({
   threshold: number;
   velocityTrigger: number;
 }): SwipeOutcome {
+  'worklet';
   if (dx > threshold || vx > velocityTrigger) {
     return dayIndex < maxDayIndex ? 'older' : 'none';
   }
