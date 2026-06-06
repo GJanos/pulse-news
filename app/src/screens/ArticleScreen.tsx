@@ -111,7 +111,6 @@ export default function ArticleScreen({
             translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
           }
         }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
