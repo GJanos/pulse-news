@@ -1,22 +1,24 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   useWindowDimensions,
   View,
   Text,
-  Pressable,
-  ScrollView,
   StyleSheet,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import { PressableScale } from 'react-native-pressable-scale';
 import { DigestPage, type DigestPageHandle } from './DigestPage';
-import PulseMark from './PulseMark';
 import PulseIcon from './Icon';
+import PinnedHeaderBar from './PinnedHeaderBar';
 import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes';
 import { isoDateAtDayIndex, formatLongDate } from '../data';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
+
+/** Fallback day-page top padding before the bar reports its real height. */
+const HEADER_HEIGHT_ESTIMATE = 56;
 
 interface Props {
   dayIndex: number;
@@ -118,82 +120,34 @@ export function useDigestRefreshOnNonce(
   }, [nonce, activePageRef]);
 }
 
-/** Per-page header. Each page in the strip carries its own header so it slides with the page. */
+/** Per-page header — now just the date/nav row. The brand line is pinned by PinnedHeaderBar. */
 const DayHeader = React.memo(function DayHeader({
   dayIndex,
   maxDayIndex,
   theme,
   aes,
-  canJump,
-  onJump,
-  onOpenSettings,
   onSetDay,
+  topInset,
 }: {
   dayIndex: number;
   maxDayIndex: number;
   theme: Theme;
   aes: Aesthetic;
-  canJump: boolean;
-  onJump: () => void;
-  onOpenSettings: () => void;
   onSetDay: (n: number) => void;
+  topInset: number;
 }) {
   const isToday = dayIndex === 0;
   const fmt = formatLongDate(isoDateAtDayIndex(dayIndex));
 
   return (
-    <View style={[styles.header, { backgroundColor: theme.bg }]}>
-      <View style={styles.headerTop}>
-        <View style={styles.wordmark}>
-          <PulseMark size={22} color={theme.text} accent={theme.accent} />
-          <Text
-            style={{
-              fontFamily: font(aes, 'title', 700),
-              fontSize: 22,
-              lineHeight: 22,
-              letterSpacing: -0.4,
-              color: theme.text,
-              marginLeft: 8,
-            }}
-          >
-            Pulse
-          </Text>
-          <Text
-            style={{
-              fontFamily: font(aes, 'eyebrow', 600),
-              fontSize: 9,
-              lineHeight: 10,
-              letterSpacing: 1.6,
-              color: theme.accent,
-              marginLeft: 8,
-              textTransform: 'uppercase',
-            }}
-          >
-            Daily
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row' }}>
-          {canJump && (
-            <Pressable
-              onPress={onJump}
-              style={iconBtn}
-              hitSlop={6}
-              accessibilityLabel="Jump to region"
-            >
-              <PulseIcon name="list-ul" size={18} color={theme.textDim} />
-            </Pressable>
-          )}
-          <Pressable
-            onPress={onOpenSettings}
-            style={iconBtn}
-            hitSlop={6}
-            accessibilityLabel="Settings"
-          >
-            <PulseIcon name="settings" size={18} color={theme.textDim} />
-          </Pressable>
-        </View>
-      </View>
-
+    <View
+      style={{
+        backgroundColor: theme.bg,
+        paddingHorizontal: 20,
+        paddingTop: topInset,
+        paddingBottom: 6,
+      }}
+    >
       <View style={styles.navRow}>
         {dayIndex < maxDayIndex ? (
           <PressableScale
@@ -299,7 +253,7 @@ export default React.memo(function DigestPager({
   const { getSlotSetter, setActivePage } = usePageRefs<DigestPageHandle>(activePageRef);
   useDigestRefreshOnNonce(activePageRef);
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<Animated.ScrollView>(null);
   // Page the strip is currently settled on. Initialised from the first-render
   // store state so the position-sync effect is a no-op on mount.
   const initialPage = useRef(
@@ -307,6 +261,22 @@ export default React.memo(function DigestPager({
   ).current;
   const currentPage = useRef(initialPage);
   const didLayout = useRef(false);
+
+  // Live horizontal offset, fed by the animated scroll handler and read by the
+  // pinned header bar to drive its fade. Seeded so the bar's opacity is correct
+  // on first frame (0 when launching straight onto settings).
+  const scrollX = useSharedValue(initialPage * W);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollX.value = e.contentOffset.x;
+    },
+  });
+
+  // Measured pinned-bar height, used to pad day pages so their nav row clears it.
+  const [headerHeight, setHeaderHeight] = useState(HEADER_HEIGHT_ESTIMATE);
+  const onHeaderHeight = useCallback((h: number) => {
+    setHeaderHeight((prev) => (Math.round(prev) === Math.round(h) ? prev : h));
+  }, []);
 
   // Keep activePageRef pointed at the active day so notification refreshes hit the right page.
   useEffect(() => {
@@ -348,60 +318,71 @@ export default React.memo(function DigestPager({
   const showSettings = dayIndex === 0 || screen === 'settings';
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      onMomentumScrollEnd={onMomentumScrollEnd}
-      contentOffset={{ x: initialPage * W, y: 0 }}
-      // Android can ignore the initial contentOffset prop; re-apply once on first layout.
-      onLayout={() => {
-        if (didLayout.current) return;
-        didLayout.current = true;
-        scrollRef.current?.scrollTo({ x: currentPage.current * W, animated: false });
-      }}
-      style={{ flex: 1, backgroundColor: theme.bg }}
-    >
-      {Array.from({ length: maxDayIndex + 1 }, (_, p) => {
-        const pageDayIndex = maxDayIndex - p;
-        const inWindow = Math.abs(pageDayIndex - dayIndex) <= WINDOW;
-        return (
-          <View key={pageDayIndex} style={{ width: W }}>
-            <DayHeader
-              dayIndex={pageDayIndex}
-              maxDayIndex={maxDayIndex}
-              theme={theme}
-              aes={aes}
-              canJump={canJump}
-              onJump={onJump}
-              onOpenSettings={onOpenSettings}
-              onSetDay={setDayIndex}
-            />
-            <View style={{ flex: 1 }}>
-              {inWindow ? (
-                <DigestPage
-                  ref={getSlotSetter(pageDayIndex)}
-                  dayIndex={pageDayIndex}
-                  active={pageDayIndex === dayIndex}
-                  onOpenArticle={onOpenArticle}
-                />
-              ) : null}
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <Animated.ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={onMomentumScrollEnd}
+        contentOffset={{ x: initialPage * W, y: 0 }}
+        // Android can ignore the initial contentOffset prop; re-apply once on first layout.
+        onLayout={() => {
+          if (didLayout.current) return;
+          didLayout.current = true;
+          scrollRef.current?.scrollTo({ x: currentPage.current * W, animated: false });
+        }}
+        style={{ flex: 1 }}
+      >
+        {Array.from({ length: maxDayIndex + 1 }, (_, p) => {
+          const pageDayIndex = maxDayIndex - p;
+          const inWindow = Math.abs(pageDayIndex - dayIndex) <= WINDOW;
+          return (
+            <View key={pageDayIndex} style={{ width: W }}>
+              <DayHeader
+                dayIndex={pageDayIndex}
+                maxDayIndex={maxDayIndex}
+                theme={theme}
+                aes={aes}
+                onSetDay={setDayIndex}
+                topInset={headerHeight}
+              />
+              <View style={{ flex: 1 }}>
+                {inWindow ? (
+                  <DigestPage
+                    ref={getSlotSetter(pageDayIndex)}
+                    dayIndex={pageDayIndex}
+                    active={pageDayIndex === dayIndex}
+                    onOpenArticle={onOpenArticle}
+                  />
+                ) : null}
+              </View>
             </View>
-          </View>
-        );
-      })}
-      {/* settings page — rightmost slot, mounted only when adjacent/open */}
-      <View key="settings" style={{ width: W }}>
-        {showSettings ? settingsSlot : null}
-      </View>
-    </ScrollView>
+          );
+        })}
+        {/* settings page — rightmost slot, mounted only when adjacent/open */}
+        <View key="settings" style={{ width: W }}>
+          {showSettings ? settingsSlot : null}
+        </View>
+      </Animated.ScrollView>
+
+      <PinnedHeaderBar
+        scrollX={scrollX}
+        settingsPage={settingsPage(maxDayIndex)}
+        width={W}
+        theme={theme}
+        aes={aes}
+        canJump={canJump}
+        onJump={onJump}
+        onOpenSettings={onOpenSettings}
+        onHeightChange={onHeaderHeight}
+      />
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  wordmark: { flexDirection: 'row', alignItems: 'center' },
-  navRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center' },
+  navRow: { flexDirection: 'row', alignItems: 'center' },
 });
