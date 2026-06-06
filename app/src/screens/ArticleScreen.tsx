@@ -1,5 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, Pressable, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  runOnJS,
+  Easing,
+} from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,9 +16,9 @@ import { font, THEMES, AESTHETICS } from '../themes';
 import { useAppStore } from '../store';
 import PulseIcon from '../components/Icon';
 import Flag from '../components/Flag';
-import { useSwipe } from '../hooks/useSwipe';
-import { useSlideIn } from '../hooks/useSlideIn';
 import { openExternalUrl } from '../utils/openExternalUrl';
+import { resolveArticleSwipe } from '../utils/swipe';
+import { setEdgeExclusion } from '../../modules/gesture-exclusion';
 import type { Headline, Region } from '../types';
 
 interface Props {
@@ -26,9 +35,22 @@ export default function ArticleScreen({
   const theme = useAppStore((s) => THEMES[s.prefs.theme]);
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
   const insets = useSafeAreaInsets();
+  const { width: W } = useWindowDimensions();
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { slideAnim, dismiss } = useSlideIn(onClose);
+
+  // Guards onClose so it fires exactly once across the back button + gesture paths.
+  const closedRef = useRef(false);
+  // Off-screen to the right; slides to 0 on mount, follows the finger on drag.
+  const translateX = useSharedValue(W);
+
+  useEffect(() => {
+    translateX.value = withTiming(0, { duration: 280, easing: Easing.out(Easing.cubic) });
+    setEdgeExclusion(true);
+    return () => {
+      setEdgeExclusion(false);
+    };
+  }, []);
 
   useEffect(
     () => () => {
@@ -37,11 +59,54 @@ export default function ArticleScreen({
     [],
   );
 
-  const openArticle = (): void => {
-    openExternalUrl(headline.url);
-  };
+  const handleClose = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    onClose();
+  }, [onClose]);
 
-  const panHandlers = useSwipe(openArticle, dismiss);
+  const openArticle = useCallback((): void => {
+    openExternalUrl(headline.url);
+  }, [headline.url]);
+
+  const animateClose = useCallback(() => {
+    translateX.value = withTiming(W, { duration: 200, easing: Easing.in(Easing.cubic) }, () => {
+      runOnJS(handleClose)();
+    });
+  }, [W, translateX, handleClose]);
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-15, 15])
+        .failOffsetY([-12, 12])
+        .onUpdate((e) => {
+          // Track the finger 1:1 in the close direction; clamp the open direction at 0.
+          translateX.value = Math.max(0, e.translationX);
+        })
+        .onEnd((e) => {
+          const action = resolveArticleSwipe(e.translationX, e.velocityX);
+          if (action === 'close') {
+            translateX.value = withTiming(
+              W,
+              { duration: 200, easing: Easing.in(Easing.cubic) },
+              () => {
+                runOnJS(handleClose)();
+              },
+            );
+          } else if (action === 'open') {
+            translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+            runOnJS(openArticle)();
+          } else {
+            translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+          }
+        }),
+    [W, handleClose, openArticle],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   const hostname = useMemo<string>(() => {
     try {
@@ -60,213 +125,215 @@ export default function ArticleScreen({
   };
 
   return (
-    <Animated.View
-      style={[
-        StyleSheet.absoluteFill,
-        { backgroundColor: theme.bg, zIndex: 100, transform: [{ translateX: slideAnim }] },
-      ]}
-      {...panHandlers}
-    >
-      <View
-        style={[
-          s.header,
-          { paddingTop: insets.top, backgroundColor: theme.surface, borderBottomColor: theme.rule },
-        ]}
+    <GestureDetector gesture={pan}>
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, zIndex: 100 }, animatedStyle]}
       >
-        <View style={s.headerRow}>
-          <Pressable
-            onPress={dismiss}
-            style={[s.headerBtn, { backgroundColor: theme.chip }]}
-            hitSlop={6}
-            accessibilityLabel="Back to digest"
-          >
-            <PulseIcon name="arrow-left" size={16} color={theme.text} />
-          </Pressable>
-
-          <Text
-            numberOfLines={1}
-            style={{
-              flex: 1,
-              textAlign: 'center',
-              marginHorizontal: 12,
-              fontFamily: font(aes, 'eyebrow', 600),
-              fontSize: 10,
-              letterSpacing: 2,
-              color: theme.accent,
-              textTransform: 'uppercase',
-            }}
-          >
-            {headline.sourceName ?? 'Article'}
-          </Text>
-
-          <View style={s.headerBtn} />
-        </View>
-      </View>
-
-      <Animated.ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text
-          style={{
-            fontFamily: font(aes, 'title', 700),
-            fontSize: 22,
-            lineHeight: 27,
-            letterSpacing: -0.4,
-            color: theme.text,
-          }}
-        >
-          {headline.title}
-        </Text>
-
-        <View style={[s.byline, { borderBottomColor: theme.rule }]}>
-          <Flag
-            country={region.country?.length === 2 ? region.country : region.code}
-            width={32}
-            height={22}
-          />
-          <Text
-            style={{
-              marginLeft: 14,
-              fontFamily: font(aes, 'body'),
-              fontSize: 18,
-              color: theme.textDim,
-            }}
-          >
-            {region.region}
-          </Text>
-          {headline.category && (
-            <View style={[s.categoryChip, { backgroundColor: theme.accentSoft, marginLeft: 14 }]}>
-              <Text
-                style={{
-                  fontFamily: font(aes, 'eyebrow', 600),
-                  fontSize: 10,
-                  letterSpacing: 1.4,
-                  color: theme.accent,
-                  textTransform: 'uppercase',
-                }}
-              >
-                {headline.category}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={[s.summaryBlock, { borderLeftColor: theme.accent }]}>
-          <Text
-            style={{
-              fontFamily: font(aes, 'body', 600),
-              fontSize: 16,
-              lineHeight: 24,
-              color: theme.text,
-            }}
-          >
-            {headline.summary}
-          </Text>
-        </View>
-
-        {headline.detail && (
-          <Text
-            style={{
-              fontFamily: font(aes, 'body'),
-              fontSize: 16,
-              lineHeight: 26,
-              color: theme.textDim,
-              marginTop: 16,
-            }}
-          >
-            {headline.detail}
-          </Text>
-        )}
-
-        <Pressable
-          onPress={openArticle}
-          accessibilityLabel="Read full article"
-          style={({ pressed }) => [
-            s.readBtn,
-            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1, marginTop: 28 },
+        <View
+          style={[
+            s.header,
+            {
+              paddingTop: insets.top,
+              backgroundColor: theme.surface,
+              borderBottomColor: theme.rule,
+            },
           ]}
         >
-          <Text
-            style={{
-              fontFamily: font(aes, 'ui', 600),
-              fontSize: 15,
-              color: '#fff',
-              letterSpacing: -0.1,
-            }}
-          >
-            Read full article
-          </Text>
-          <View style={{ marginLeft: 8 }}>
-            <PulseIcon name="arrow-right" size={14} color="#fff" strokeWidth={2} />
-          </View>
-        </Pressable>
+          <View style={s.headerRow}>
+            <Pressable
+              onPress={animateClose}
+              style={[s.headerBtn, { backgroundColor: theme.chip }]}
+              hitSlop={6}
+              accessibilityLabel="Back to digest"
+            >
+              <PulseIcon name="arrow-left" size={16} color={theme.text} />
+            </Pressable>
 
-        <View style={[s.copyRow, { backgroundColor: theme.chip }]}>
-          <View style={s.sourceInfo}>
             <Text
               numberOfLines={1}
               style={{
-                flexShrink: 1,
-                fontFamily: font(aes, 'number'),
-                fontSize: 11,
+                flex: 1,
+                textAlign: 'center',
+                marginHorizontal: 12,
+                fontFamily: font(aes, 'eyebrow', 600),
+                fontSize: 10,
+                letterSpacing: 2,
                 color: theme.accent,
+                textTransform: 'uppercase',
               }}
             >
-              {hostname}
+              {headline.sourceName ?? 'Article'}
             </Text>
-            <PulseIcon name="link" size={13} color={theme.accent} strokeWidth={1.8} />
+
+            <View style={s.headerBtn} />
           </View>
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text
+            style={{
+              fontFamily: font(aes, 'title', 700),
+              fontSize: 22,
+              lineHeight: 27,
+              letterSpacing: -0.4,
+              color: theme.text,
+            }}
+          >
+            {headline.title}
+          </Text>
+
+          <View style={[s.byline, { borderBottomColor: theme.rule }]}>
+            <Flag
+              country={region.country?.length === 2 ? region.country : region.code}
+              width={32}
+              height={22}
+            />
+            <Text
+              style={{
+                marginLeft: 14,
+                fontFamily: font(aes, 'body'),
+                fontSize: 18,
+                color: theme.textDim,
+              }}
+            >
+              {region.region}
+            </Text>
+            {headline.category && (
+              <View style={[s.categoryChip, { backgroundColor: theme.accentSoft, marginLeft: 14 }]}>
+                <Text
+                  style={{
+                    fontFamily: font(aes, 'eyebrow', 600),
+                    fontSize: 10,
+                    letterSpacing: 1.4,
+                    color: theme.accent,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {headline.category}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={[s.summaryBlock, { borderLeftColor: theme.accent }]}>
+            <Text
+              style={{
+                fontFamily: font(aes, 'body', 600),
+                fontSize: 16,
+                lineHeight: 24,
+                color: theme.text,
+              }}
+            >
+              {headline.summary}
+            </Text>
+          </View>
+
+          {headline.detail && (
+            <Text
+              style={{
+                fontFamily: font(aes, 'body'),
+                fontSize: 16,
+                lineHeight: 26,
+                color: theme.textDim,
+                marginTop: 16,
+              }}
+            >
+              {headline.detail}
+            </Text>
+          )}
+
           <Pressable
-            onPress={copyLink}
-            accessibilityLabel={copied ? 'Link copied' : 'Copy link'}
-            style={[s.copyBtn, { borderColor: copied ? theme.accent : theme.ruleStrong }]}
+            onPress={openArticle}
+            accessibilityLabel="Read full article"
+            style={({ pressed }) => [
+              s.readBtn,
+              { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1, marginTop: 28 },
+            ]}
           >
             <Text
               style={{
                 fontFamily: font(aes, 'ui', 600),
-                fontSize: 12,
-                color: copied ? theme.accent : theme.textDim,
+                fontSize: 15,
+                color: '#fff',
+                letterSpacing: -0.1,
               }}
             >
-              {copied ? 'Copied' : 'Copy'}
+              Read full article
             </Text>
-            <PulseIcon
-              name={copied ? 'check' : 'copy'}
-              size={13}
-              color={copied ? theme.accent : theme.textDim}
-              strokeWidth={1.8}
-            />
+            <View style={{ marginLeft: 8 }}>
+              <PulseIcon name="arrow-right" size={14} color="#fff" strokeWidth={2} />
+            </View>
           </Pressable>
-        </View>
 
-        <View style={s.swipeHints}>
-          <Text
-            style={{
-              fontFamily: font(aes, 'eyebrow', 600),
-              fontSize: 9,
-              letterSpacing: 1.4,
-              color: theme.textFaint,
-              textTransform: 'uppercase',
-            }}
-          >
-            ← swipe right · close
-          </Text>
-          <Text
-            style={{
-              fontFamily: font(aes, 'eyebrow', 600),
-              fontSize: 9,
-              letterSpacing: 1.4,
-              color: theme.textFaint,
-              textTransform: 'uppercase',
-            }}
-          >
-            swipe left · open →
-          </Text>
-        </View>
-      </Animated.ScrollView>
-    </Animated.View>
+          <View style={[s.copyRow, { backgroundColor: theme.chip }]}>
+            <View style={s.sourceInfo}>
+              <Text
+                numberOfLines={1}
+                style={{
+                  flexShrink: 1,
+                  fontFamily: font(aes, 'number'),
+                  fontSize: 11,
+                  color: theme.accent,
+                }}
+              >
+                {hostname}
+              </Text>
+              <PulseIcon name="link" size={13} color={theme.accent} strokeWidth={1.8} />
+            </View>
+            <Pressable
+              onPress={copyLink}
+              accessibilityLabel={copied ? 'Link copied' : 'Copy link'}
+              style={[s.copyBtn, { borderColor: copied ? theme.accent : theme.ruleStrong }]}
+            >
+              <Text
+                style={{
+                  fontFamily: font(aes, 'ui', 600),
+                  fontSize: 12,
+                  color: copied ? theme.accent : theme.textDim,
+                }}
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </Text>
+              <PulseIcon
+                name={copied ? 'check' : 'copy'}
+                size={13}
+                color={copied ? theme.accent : theme.textDim}
+                strokeWidth={1.8}
+              />
+            </Pressable>
+          </View>
+
+          <View style={s.swipeHints}>
+            <Text
+              style={{
+                fontFamily: font(aes, 'eyebrow', 600),
+                fontSize: 9,
+                letterSpacing: 1.4,
+                color: theme.textFaint,
+                textTransform: 'uppercase',
+              }}
+            >
+              ← swipe right · close
+            </Text>
+            <Text
+              style={{
+                fontFamily: font(aes, 'eyebrow', 600),
+                fontSize: 9,
+                letterSpacing: 1.4,
+                color: theme.textFaint,
+                textTransform: 'uppercase',
+              }}
+            >
+              swipe left · open →
+            </Text>
+          </View>
+        </ScrollView>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

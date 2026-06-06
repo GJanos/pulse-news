@@ -36,7 +36,7 @@ export function clampGlobalHeadlineCount(stored: number, max: number): number {
   return Math.min(stored, max);
 }
 
-export function useDigestPageData(date: string, isToday: boolean) {
+export function useDigestPageData(date: string, isToday: boolean, currencyRatesEnabled: boolean) {
   const selectedRegions = useAppStore((s) => s.prefs.selectedRegions);
   const headlineCount = useAppStore((s) => s.prefs.headlineCount);
   const regionHeadlineCounts = useAppStore((s) => s.prefs.regionHeadlineCounts);
@@ -45,7 +45,6 @@ export function useDigestPageData(date: string, isToday: boolean) {
   const globalHeadlineCount = useAppStore((s) => s.prefs.globalHeadlineCount);
   const showCurrencyRates = useAppStore((s) => s.prefs.showCurrencyRates);
   const baseCurrency = useAppStore((s) => s.prefs.baseCurrency);
-  const screen = useAppStore((s) => s.screen);
 
   const {
     digest,
@@ -85,7 +84,7 @@ export function useDigestPageData(date: string, isToday: boolean) {
   // data is still within STALE_MS.
   const { rates: currencyRates, forceRefresh: forceRefreshCurrency } = useCurrencyRates(
     currencyCodes,
-    showCurrencyRates && isToday && screen !== 'settings',
+    showCurrencyRates && isToday && currencyRatesEnabled,
     baseCurrency,
   );
 

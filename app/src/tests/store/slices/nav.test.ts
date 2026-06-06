@@ -80,6 +80,32 @@ describe('nav slice — logging', () => {
     expect(logDebug).toHaveBeenCalledWith('screen → digest (notification)');
   });
 
+  it('setDayIndex logs the new day index', () => {
+    const s = makeStore();
+    s.getState().setDayIndex(3);
+    expect(logDebug).toHaveBeenCalledWith('dayIndex 3');
+  });
+
+  it('setArticle logs article open and close', () => {
+    const s = makeStore();
+    const entry = {
+      h: { title: 'Test', summary: 'Sum', url: 'https://example.com' },
+      r: {
+        region: 'Hungary',
+        country: 'HU',
+        code: 'HUN',
+        continent: 'Europe' as const,
+        currency: 'HUF',
+        sources: [],
+      },
+    };
+    s.getState().setArticle(entry);
+    expect(logDebug).toHaveBeenCalledWith('article open (Test)');
+    logDebug.mockClear();
+    s.getState().setArticle(null);
+    expect(logDebug).toHaveBeenCalledWith('article close');
+  });
+
   it('navigateToDigest still resets to digest after logging', () => {
     const s = makeStore();
     s.getState().setScreen('settings');

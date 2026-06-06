@@ -8,7 +8,6 @@ import {
   Modal,
   Linking,
   Switch,
-  Animated,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -19,8 +18,6 @@ import { useAppStore } from '../store';
 import RegionPicker from '../components/RegionPicker';
 import Stepper from '../components/Stepper';
 import PulseIcon from '../components/Icon';
-import { useSlideIn } from '../hooks/useSlideIn';
-import { useSwipe } from '../hooks/useSwipe';
 import { globalHeadlineMax } from '../config';
 import type { UserPreferences } from '../types';
 
@@ -45,9 +42,7 @@ export default function SettingsScreen({
   const theme = THEMES[prefs.theme] ?? THEMES.light;
   const aes = AESTHETICS[prefs.aesthetic] ?? AESTHETICS.editorial;
 
-  const { slideAnim, dismiss } = useSlideIn(() => setScreen('digest'));
-  const panHandlers = useSwipe(undefined, dismiss);
-  const handleBack = embedded ? () => setScreen('digest') : dismiss;
+  const handleBack = (): void => setScreen('digest');
   const [deleting, setDeleting] = useState(false);
 
   const confirmDelete = (): void => {
@@ -74,24 +69,21 @@ export default function SettingsScreen({
   const email = session?.user?.email ?? '';
 
   return (
-    <Animated.View
+    <View
       style={
         embedded
-          ? // embedded inside the pager, which already lives inside App's SafeAreaView —
-            // don't re-apply insets, and no slide transform (the pager owns the motion)
+          ? // embedded inside the pager, which already lives inside App's SafeAreaView
             { flex: 1, backgroundColor: theme.bg }
           : [
               StyleSheet.absoluteFill,
               {
                 backgroundColor: theme.bg,
                 zIndex: 50,
-                transform: [{ translateX: slideAnim }],
                 paddingTop: insets.top,
                 paddingBottom: insets.bottom,
               },
             ]
       }
-      {...(embedded ? {} : panHandlers)}
     >
       <View style={[s.header, { backgroundColor: theme.bg, borderBottomColor: theme.rule }]}>
         <Pressable
@@ -117,7 +109,7 @@ export default function SettingsScreen({
         </Text>
       </View>
 
-      <Animated.ScrollView
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 20, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
@@ -397,8 +389,8 @@ export default function SettingsScreen({
             Pulse News · v1.0{'\n'}one notification · one tap · move on
           </Text>
         </View>
-      </Animated.ScrollView>
-    </Animated.View>
+      </ScrollView>
+    </View>
   );
 }
 

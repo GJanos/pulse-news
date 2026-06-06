@@ -84,25 +84,25 @@ beforeEach(() => jest.clearAllMocks());
 describe('useDigestPageData — currency query gating', () => {
   it('enables the currency query on the digest screen (today, rates on)', () => {
     setStore({ screen: 'digest' });
-    renderHook(() => useDigestPageData('2026-06-02', true));
+    renderHook(() => useDigestPageData('2026-06-02', true, true));
     expect(lastEnabledArg()).toBe(true);
   });
 
   it('disables the currency query while Settings is open', () => {
     setStore({ screen: 'settings' });
-    renderHook(() => useDigestPageData('2026-06-02', true));
+    renderHook(() => useDigestPageData('2026-06-02', true, false));
     expect(lastEnabledArg()).toBe(false);
   });
 
   it('stays disabled when currency rates are turned off', () => {
     setStore({ screen: 'digest', showCurrencyRates: false });
-    renderHook(() => useDigestPageData('2026-06-02', true));
+    renderHook(() => useDigestPageData('2026-06-02', true, true));
     expect(lastEnabledArg()).toBe(false);
   });
 
   it('stays disabled when viewing a non-today page', () => {
     setStore({ screen: 'digest' });
-    renderHook(() => useDigestPageData('2026-05-30', false));
+    renderHook(() => useDigestPageData('2026-05-30', false, true));
     expect(lastEnabledArg()).toBe(false);
   });
 });

@@ -119,3 +119,4 @@ export const Platform = {
   select: (obj: Record<string, unknown>) => obj.android ?? obj.default,
 };
 export const Dimensions = { get: () => ({ width: 375, height: 812 }) };
+export const useWindowDimensions = () => ({ width: 375, height: 812 });

@@ -51,11 +51,13 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
   },
 
   setDayIndex: (dayIndex) => {
+    log.debug(`dayIndex ${dayIndex}`);
     set({ dayIndex });
     get().persistNavState();
   },
 
   setArticle: (article) => {
+    log.debug(article ? `article open (${article.h.title})` : 'article close');
     set({ article });
     // Article is transient — not persisted across restarts
   },
