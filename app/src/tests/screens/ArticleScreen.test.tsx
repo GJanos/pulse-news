@@ -11,6 +11,10 @@ jest.mock('expo-web-browser', () => ({
   openBrowserAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../../../modules/gesture-exclusion', () => ({
+  setEdgeExclusion: jest.fn(),
+}));
+
 jest.mock('expo-clipboard', () => ({
   setStringAsync: jest.fn().mockResolvedValue(undefined),
 }));
