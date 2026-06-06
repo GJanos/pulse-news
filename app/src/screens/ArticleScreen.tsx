@@ -65,19 +65,25 @@ export default function ArticleScreen({
     onClose();
   }, [onClose]);
 
-  const animateClose = useCallback(() => {
-    translateX.value = withTiming(
-      W,
-      { duration: 200, easing: Easing.in(Easing.cubic) },
-      (finished) => {
-        if (finished) runOnJS(handleClose)();
-      },
-    );
-  }, [W, handleClose, translateX]);
+  const handleCloseRef = useRef(handleClose);
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  }, [handleClose]);
 
   const openArticle = useCallback((): void => {
     openExternalUrl(headline.url);
   }, [headline.url]);
+
+  const openArticleRef = useRef(openArticle);
+  useEffect(() => {
+    openArticleRef.current = openArticle;
+  }, [openArticle]);
+
+  const animateClose = useCallback(() => {
+    translateX.value = withTiming(W, { duration: 200, easing: Easing.in(Easing.cubic) }, () => {
+      runOnJS(handleCloseRef.current)();
+    });
+  }, [W, translateX]);
 
   const pan = useMemo(
     () =>
@@ -94,18 +100,19 @@ export default function ArticleScreen({
             translateX.value = withTiming(
               W,
               { duration: 200, easing: Easing.in(Easing.cubic) },
-              (finished) => {
-                if (finished) runOnJS(handleClose)();
+              () => {
+                runOnJS(handleCloseRef.current)();
               },
             );
           } else if (action === 'open') {
             translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
-            runOnJS(openArticle)();
+            runOnJS(openArticleRef.current)();
           } else {
             translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
           }
         }),
-    [W, handleClose, openArticle, translateX],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
