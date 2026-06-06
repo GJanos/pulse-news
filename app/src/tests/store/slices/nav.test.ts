@@ -285,3 +285,50 @@ describe('navigateToDigest', () => {
     expect(s.getState().article).toBeNull();
   });
 });
+
+describe('reader state', () => {
+  it('readerUrl starts null', () => {
+    const s = makeStore();
+    expect(s.getState().readerUrl).toBeNull();
+  });
+
+  it('setReaderUrl stores a url', () => {
+    const s = makeStore();
+    s.getState().setReaderUrl('https://example.com/article');
+    expect(s.getState().readerUrl).toBe('https://example.com/article');
+  });
+
+  it('setReaderUrl(null) clears readerUrl', () => {
+    const s = makeStore();
+    s.getState().setReaderUrl('https://example.com/article');
+    s.getState().setReaderUrl(null);
+    expect(s.getState().readerUrl).toBeNull();
+  });
+
+  it('readerCanGoBack starts false', () => {
+    const s = makeStore();
+    expect(s.getState().readerCanGoBack).toBe(false);
+  });
+
+  it('setReaderCanGoBack toggles the flag', () => {
+    const s = makeStore();
+    s.getState().setReaderCanGoBack(true);
+    expect(s.getState().readerCanGoBack).toBe(true);
+    s.getState().setReaderCanGoBack(false);
+    expect(s.getState().readerCanGoBack).toBe(false);
+  });
+
+  it('readerBackFn starts null', () => {
+    const s = makeStore();
+    expect(s.getState().readerBackFn).toBeNull();
+  });
+
+  it('setReaderBackFn stores and clears the fn', () => {
+    const s = makeStore();
+    const fn = jest.fn();
+    s.getState().setReaderBackFn(fn);
+    expect(s.getState().readerBackFn).toBe(fn);
+    s.getState().setReaderBackFn(null);
+    expect(s.getState().readerBackFn).toBeNull();
+  });
+});
