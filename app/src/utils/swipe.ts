@@ -16,3 +16,7 @@ export function resolveArticleSwipe(dx: number, vx: number): 'open' | 'close' | 
   if (dx < -SWIPE_DISTANCE || vx < -SWIPE_VELOCITY) return 'open';
   return 'stay';
 }
+
+export function resolveReaderBack(canGoBack: boolean): 'goBack' | 'close' {
+  return canGoBack ? 'goBack' : 'close';
+}
