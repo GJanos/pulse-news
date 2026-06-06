@@ -46,7 +46,6 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
 
   const translateX = useSharedValue(W);
   const canGoBackSV = useSharedValue(false);
-  const edgeHit = useSharedValue(false);
 
   useEffect(() => {
     translateX.value = withTiming(0, { duration: 280, easing: Easing.out(Easing.cubic) });
@@ -88,22 +87,18 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
     }
   }, [url]);
 
+  // Gesture lives on the left-edge strip only — WebView receives all other touches directly.
   const pan = useMemo(
     () =>
       Gesture.Pan()
         .activeOffsetX([5, 999])
-        .failOffsetY([-8, 8])
-        .onBegin((e) => {
-          edgeHit.value = e.x <= EDGE_WIDTH;
-        })
+        .failOffsetY([-20, 20])
         .onUpdate((e) => {
-          if (!edgeHit.value) return;
           if (!canGoBackSV.value) {
             translateX.value = Math.max(0, e.translationX);
           }
         })
         .onEnd((e) => {
-          if (!edgeHit.value) return;
           if (canGoBackSV.value) {
             if (e.translationX > SWIPE_DISTANCE || e.velocityX > SWIPE_VELOCITY) {
               runOnJS(handleGoBack)();
@@ -122,12 +117,8 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
               translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
             }
           }
-          edgeHit.value = false;
-        })
-        .onFinalize(() => {
-          edgeHit.value = false;
         }),
-    [W, translateX, canGoBackSV, edgeHit, handleGoBack, handleClose],
+    [W, translateX, canGoBackSV, handleGoBack, handleClose],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -135,119 +126,122 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
   }));
 
   return (
-    <GestureDetector gesture={pan}>
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, zIndex: 200 }, animatedStyle]}
+    <Animated.View
+      style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, zIndex: 200 }, animatedStyle]}
+    >
+      <View
+        style={[
+          s.topBar,
+          {
+            paddingTop: insets.top,
+            backgroundColor: theme.surface,
+            borderBottomColor: theme.rule,
+          },
+        ]}
       >
-        <View
-          style={[
-            s.topBar,
-            {
-              paddingTop: insets.top,
-              backgroundColor: theme.surface,
-              borderBottomColor: theme.rule,
-            },
-          ]}
-        >
-          <View style={s.topBarRow}>
-            <Pressable
-              onPress={animateClose}
-              style={[s.barBtn, { backgroundColor: theme.chip }]}
-              hitSlop={6}
-              accessibilityLabel="Close reader"
-            >
-              <PulseIcon name="arrow-left" size={16} color={theme.text} />
-            </Pressable>
+        <View style={s.topBarRow}>
+          <Pressable
+            onPress={animateClose}
+            style={[s.barBtn, { backgroundColor: theme.chip }]}
+            hitSlop={6}
+            accessibilityLabel="Close reader"
+          >
+            <PulseIcon name="arrow-left" size={16} color={theme.text} />
+          </Pressable>
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              marginHorizontal: 12,
+              fontFamily: font(aes, 'eyebrow', 600),
+              fontSize: 10,
+              letterSpacing: 2,
+              color: theme.accent,
+              textTransform: 'uppercase',
+            }}
+          >
+            {hostname}
+          </Text>
+          <Pressable
+            onPress={() => openExternalUrl(url)}
+            style={[s.barBtn, { backgroundColor: theme.chip }]}
+            hitSlop={6}
+            accessibilityLabel="Open in browser"
+          >
+            <PulseIcon name="link" size={16} color={theme.text} />
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={s.webViewContainer}>
+        <WebView
+          ref={webViewRef}
+          source={{ uri: url }}
+          onLoadEnd={() => setLoading(false)}
+          onError={() => {
+            setLoading(false);
+            setHasError(true);
+          }}
+          onHttpError={() => {
+            setLoading(false);
+            setHasError(true);
+          }}
+          onNavigationStateChange={handleNavigationStateChange}
+          setSupportMultipleWindows={false}
+          style={{ flex: 1, backgroundColor: theme.bg }}
+        />
+
+        {loading && (
+          <View style={[s.overlay, { backgroundColor: theme.bg }]} testID="reader-loading">
+            <ActivityIndicator size="large" color={theme.accent} />
+          </View>
+        )}
+
+        {hasError && (
+          <View style={[s.overlay, { backgroundColor: theme.bg }]} testID="reader-error">
             <Text
-              numberOfLines={1}
               style={{
-                flex: 1,
+                fontFamily: font(aes, 'body', 400),
+                fontSize: 15,
+                color: theme.textDim,
+                marginBottom: 24,
                 textAlign: 'center',
-                marginHorizontal: 12,
-                fontFamily: font(aes, 'eyebrow', 600),
-                fontSize: 10,
-                letterSpacing: 2,
-                color: theme.accent,
-                textTransform: 'uppercase',
               }}
             >
-              {hostname}
+              Could not load the article.
             </Text>
             <Pressable
+              onPress={() => {
+                setHasError(false);
+                setLoading(true);
+              }}
+              style={[s.errorBtn, { borderColor: theme.ruleStrong }]}
+              accessibilityLabel="Retry"
+              testID="reader-retry"
+            >
+              <Text style={{ fontFamily: font(aes, 'ui', 600), fontSize: 13, color: theme.text }}>
+                Retry
+              </Text>
+            </Pressable>
+            <Pressable
               onPress={() => openExternalUrl(url)}
-              style={[s.barBtn, { backgroundColor: theme.chip }]}
-              hitSlop={6}
+              style={[s.errorBtn, { borderColor: theme.ruleStrong, marginTop: 10 }]}
               accessibilityLabel="Open in browser"
             >
-              <PulseIcon name="link" size={16} color={theme.text} />
+              <Text style={{ fontFamily: font(aes, 'ui', 600), fontSize: 13, color: theme.text }}>
+                Open in browser
+              </Text>
             </Pressable>
           </View>
-        </View>
+        )}
 
-        <View style={s.webViewContainer}>
-          <WebView
-            ref={webViewRef}
-            source={{ uri: url }}
-            onLoadEnd={() => setLoading(false)}
-            onError={() => {
-              setLoading(false);
-              setHasError(true);
-            }}
-            onHttpError={() => {
-              setLoading(false);
-              setHasError(true);
-            }}
-            onNavigationStateChange={handleNavigationStateChange}
-            setSupportMultipleWindows={false}
-            style={{ flex: 1, backgroundColor: theme.bg }}
-          />
-
-          {loading && (
-            <View style={[s.overlay, { backgroundColor: theme.bg }]} testID="reader-loading">
-              <ActivityIndicator size="large" color={theme.accent} />
-            </View>
-          )}
-
-          {hasError && (
-            <View style={[s.overlay, { backgroundColor: theme.bg }]} testID="reader-error">
-              <Text
-                style={{
-                  fontFamily: font(aes, 'body', 400),
-                  fontSize: 15,
-                  color: theme.textDim,
-                  marginBottom: 24,
-                  textAlign: 'center',
-                }}
-              >
-                Could not load the article.
-              </Text>
-              <Pressable
-                onPress={() => {
-                  setHasError(false);
-                  setLoading(true);
-                }}
-                style={[s.errorBtn, { borderColor: theme.ruleStrong }]}
-                accessibilityLabel="Retry"
-                testID="reader-retry"
-              >
-                <Text style={{ fontFamily: font(aes, 'ui', 600), fontSize: 13, color: theme.text }}>
-                  Retry
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => openExternalUrl(url)}
-                style={[s.errorBtn, { borderColor: theme.ruleStrong, marginTop: 10 }]}
-                accessibilityLabel="Open in browser"
-              >
-                <Text style={{ fontFamily: font(aes, 'ui', 600), fontSize: 13, color: theme.text }}>
-                  Open in browser
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-      </Animated.View>
-    </GestureDetector>
+        {/* Edge strip: gesture lives here only — WebView is unimpeded everywhere else */}
+        <GestureDetector gesture={pan}>
+          <View style={s.edgeStrip} />
+        </GestureDetector>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -268,6 +262,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   webViewContainer: { flex: 1 },
+  edgeStrip: { position: 'absolute', left: 0, top: 0, bottom: 0, width: EDGE_WIDTH },
   overlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
