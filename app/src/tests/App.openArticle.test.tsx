@@ -89,6 +89,11 @@ jest.mock('../screens/ArticleScreen', () => ({
   default: () => null,
 }));
 
+jest.mock('../screens/ArticleReader', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 const actions = {
   signIn: jest.fn(),
   signUp: jest.fn(),

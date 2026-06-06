@@ -11,6 +11,9 @@ export const Gesture = {
     failOffsetY: function (this: unknown) {
       return this;
     },
+    onBegin: function (this: unknown) {
+      return this;
+    },
     onStart: function (this: unknown) {
       return this;
     },
@@ -18,6 +21,9 @@ export const Gesture = {
       return this;
     },
     onEnd: function (this: unknown) {
+      return this;
+    },
+    onFinalize: function (this: unknown) {
       return this;
     },
   }),

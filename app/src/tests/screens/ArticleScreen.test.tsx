@@ -1,15 +1,10 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import * as WebBrowser from 'expo-web-browser';
 import * as Clipboard from 'expo-clipboard';
 import { useAppStore } from '../../store';
 import { DEFAULT_PREFERENCES } from '../../storage/preferences';
 import ArticleScreen from '../../screens/ArticleScreen';
 import type { Headline, Region } from '../../types';
-
-jest.mock('expo-web-browser', () => ({
-  openBrowserAsync: jest.fn().mockResolvedValue(undefined),
-}));
 
 jest.mock('../../../modules/gesture-exclusion', () => ({
   setEdgeExclusion: jest.fn(),
@@ -57,10 +52,10 @@ describe('ArticleScreen', () => {
     expect(getByText('not a valid url')).toBeTruthy();
   });
 
-  it('opens the browser with no options when Read full article is pressed', () => {
+  it('opens the reader when Read full article is pressed', () => {
     const { getByLabelText } = renderArticle();
     fireEvent.press(getByLabelText('Read full article'));
-    expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(headline.url);
+    expect(useAppStore.getState().readerUrl).toBe(headline.url);
   });
 
   it('copies the url and toggles the copied state, then resets', async () => {

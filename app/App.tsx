@@ -39,6 +39,8 @@ import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import DigestPager from './src/components/DigestPager';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ArticleScreen from './src/screens/ArticleScreen';
+import ArticleReader from './src/screens/ArticleReader';
+import { resolveReaderBack } from './src/utils/swipe';
 import { openExternalUrl } from './src/utils/openExternalUrl';
 import { getLogger } from './src/logger';
 import UpdateRequiredScreen from './src/screens/stubs/UpdateRequiredScreen';
@@ -132,6 +134,8 @@ export function RootScreens({
   const article = useAppStore((s) => s.article);
   const setArticle = useAppStore((s) => s.setArticle);
   const setScreen = useAppStore((s) => s.setScreen);
+  const readerUrl = useAppStore((s) => s.readerUrl);
+  const setReaderUrl = useAppStore((s) => s.setReaderUrl);
   const activePageRef = useRef<DigestPageHandle | null>(null);
 
   const onOpenArticle = useCallback(
@@ -162,6 +166,16 @@ export function RootScreens({
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const state = useAppStore.getState();
+      if (state.readerUrl) {
+        const action = resolveReaderBack(state.readerCanGoBack);
+        if (action === 'goBack') {
+          state.readerBackFn?.();
+        } else {
+          state.setReaderUrl(null);
+        }
+        return true;
+      }
       if (article) {
         setArticle(null);
         return true;
@@ -224,6 +238,7 @@ export function RootScreens({
       {article && (
         <ArticleScreen headline={article.h} region={article.r} onClose={() => setArticle(null)} />
       )}
+      {readerUrl && <ArticleReader url={readerUrl} onClose={() => setReaderUrl(null)} />}
     </SafeAreaView>
   );
 }

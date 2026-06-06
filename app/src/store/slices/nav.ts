@@ -34,6 +34,12 @@ export interface NavSlice {
   navigateToDigest: () => void;
   restoreNavState: () => void;
   persistNavState: () => void;
+  readerUrl: string | null;
+  setReaderUrl: (url: string | null) => void;
+  readerCanGoBack: boolean;
+  setReaderCanGoBack: (b: boolean) => void;
+  readerBackFn: (() => void) | null;
+  setReaderBackFn: (fn: (() => void) | null) => void;
 }
 
 let _persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -43,6 +49,9 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
   dayIndex: 0,
   article: null,
   digestRefreshNonce: 0,
+  readerUrl: null,
+  readerCanGoBack: false,
+  readerBackFn: null,
 
   setScreen: (screen) => {
     log.debug(`screen ${get().screen} → ${screen}`);
@@ -61,6 +70,10 @@ export const createNavSlice: StateCreator<NavSlice> = (set, get) => ({
     set({ article });
     // Article is transient — not persisted across restarts
   },
+
+  setReaderUrl: (url) => set({ readerUrl: url }),
+  setReaderCanGoBack: (b) => set({ readerCanGoBack: b }),
+  setReaderBackFn: (fn) => set({ readerBackFn: fn }),
 
   navigateToDigest: () => {
     log.debug('screen → digest (notification)');

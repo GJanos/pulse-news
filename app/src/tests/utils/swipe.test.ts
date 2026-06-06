@@ -1,4 +1,9 @@
-import { resolveArticleSwipe, SWIPE_DISTANCE, SWIPE_VELOCITY } from '../../utils/swipe';
+import {
+  resolveArticleSwipe,
+  resolveReaderBack,
+  SWIPE_DISTANCE,
+  SWIPE_VELOCITY,
+} from '../../utils/swipe';
 
 describe('resolveArticleSwipe', () => {
   it('closes on a rightward drag past the distance threshold', () => {
@@ -21,5 +26,15 @@ describe('resolveArticleSwipe', () => {
     expect(resolveArticleSwipe(0, 0)).toBe('stay');
     expect(resolveArticleSwipe(SWIPE_DISTANCE, SWIPE_VELOCITY)).toBe('stay'); // boundary is exclusive
     expect(resolveArticleSwipe(-SWIPE_DISTANCE, -SWIPE_VELOCITY)).toBe('stay');
+  });
+});
+
+describe('resolveReaderBack', () => {
+  it('returns goBack when canGoBack is true', () => {
+    expect(resolveReaderBack(true)).toBe('goBack');
+  });
+
+  it('returns close when canGoBack is false', () => {
+    expect(resolveReaderBack(false)).toBe('close');
   });
 });

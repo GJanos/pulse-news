@@ -16,7 +16,6 @@ import { font, THEMES, AESTHETICS } from '../themes';
 import { useAppStore } from '../store';
 import PulseIcon from '../components/Icon';
 import Flag from '../components/Flag';
-import { openExternalUrl } from '../utils/openExternalUrl';
 import { resolveArticleSwipe } from '../utils/swipe';
 import { setEdgeExclusion } from '../../modules/gesture-exclusion';
 import type { Headline, Region } from '../types';
@@ -34,6 +33,7 @@ export default function ArticleScreen({
 }: Props): React.ReactElement | null {
   const theme = useAppStore((s) => THEMES[s.prefs.theme]);
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
+  const setReaderUrl = useAppStore((s) => s.setReaderUrl);
   const insets = useSafeAreaInsets();
   const { width: W } = useWindowDimensions();
   const [copied, setCopied] = useState(false);
@@ -66,8 +66,8 @@ export default function ArticleScreen({
   }, [onClose]);
 
   const openArticle = useCallback((): void => {
-    openExternalUrl(headline.url);
-  }, [headline.url]);
+    setReaderUrl(headline.url);
+  }, [headline.url, setReaderUrl]);
 
   const animateClose = useCallback(() => {
     translateX.value = withTiming(W, { duration: 200, easing: Easing.in(Easing.cubic) }, () => {
@@ -79,7 +79,7 @@ export default function ArticleScreen({
     () =>
       Gesture.Pan()
         .activeOffsetX([-15, 15])
-        .failOffsetY([-12, 12])
+        .failOffsetY([-20, 20])
         .onUpdate((e) => {
           // Track the finger 1:1 in the close direction; clamp the open direction at 0.
           translateX.value = Math.max(0, e.translationX);
