@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { render, act } from '@testing-library/react-native';
 import { useAppStore } from '../../store';
 import { DEFAULT_PREFERENCES } from '../../storage/preferences';
 import ArticleReader from '../../screens/ArticleReader';
