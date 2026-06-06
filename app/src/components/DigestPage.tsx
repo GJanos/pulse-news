@@ -17,13 +17,13 @@ export interface DigestPageHandle {
 
 interface Props {
   dayIndex: number;
-  active: boolean;
   onOpenArticle: (h: Headline, r: Region) => void;
+  currencyRatesEnabled: boolean;
 }
 
 export const DigestPage = React.memo(
   React.forwardRef<DigestPageHandle, Props>(function DigestPage(
-    { dayIndex, active, onOpenArticle },
+    { dayIndex, onOpenArticle, currencyRatesEnabled },
     ref,
   ) {
     const isToday = dayIndex === 0;
@@ -43,7 +43,7 @@ export const DigestPage = React.memo(
       totalHeadlines,
       currencyRates,
       forceRefresh,
-    } = useDigestPageData(date, isToday);
+    } = useDigestPageData(date, isToday, currencyRatesEnabled);
 
     const flatRef = useRef<FlatList<ListItem> | null>(null);
     const { listData, indexMapRef } = useJumpTargets(visible, visibleGlobalHeadlines, hasGlobal);
@@ -167,7 +167,7 @@ export const DigestPage = React.memo(
             keyExtractor={(item) => item.key}
             showsVerticalScrollIndicator={false}
             refreshing={refreshing}
-            onRefresh={active && isToday ? onRefresh : undefined}
+            onRefresh={isToday ? onRefresh : undefined}
             onScrollToIndexFailed={onScrollToIndexFailed}
             renderItem={renderItem}
             removeClippedSubviews

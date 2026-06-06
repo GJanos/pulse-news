@@ -2,9 +2,11 @@
 
 ## V1
 
-- when navigating to today page it does a firce rerender every time , causing a jerk back effect if the user immediately started scrolling, this is really bad
+- swiping motings are too sensitive they should only fire when user swipes not in the middle but towards to the sides at least
 
 - i need images in the digest page, to increase user retention
+
+# bugs
 
 Root Cause Analysis: The .5s Lag
 Your observation:
@@ -23,6 +25,8 @@ Likely causes:
 RegionPicker initialization — On first touch, useEffect in RegionPicker re-sorts orderedRegions; React re-renders RegionSection × N regions
 CurrencyPicker first open — Currency picker may do async work (lookup, format) on first interaction
 FlatList computation — listData and indexMapRef in DigestPage are computed on first mount; if many regions/headlines, this JS work blocks the thread
+
+# bugs
 
 LOG 2026-06-06T09:09:45.950Z DEBUG (digests) multiGet: 9/9 cache hits for 2026-06-04
 LOG 2026-06-06T09:09:45.951Z INFO (useGlobalHeadlines) fetching global headlines for 2026-06-04

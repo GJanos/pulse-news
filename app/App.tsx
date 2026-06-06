@@ -40,6 +40,7 @@ import DigestPager from './src/components/DigestPager';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ArticleScreen from './src/screens/ArticleScreen';
 import { openExternalUrl } from './src/utils/openExternalUrl';
+import { getLogger } from './src/logger';
 import UpdateRequiredScreen from './src/screens/stubs/UpdateRequiredScreen';
 import MaintenanceScreen from './src/screens/stubs/MaintenanceScreen';
 import type { AppState, ScreenId, Headline, Region } from './src/types';
@@ -48,6 +49,7 @@ import type { AuthActions } from './src/hooks/useSupabaseAuth';
 import type { DigestPageHandle } from './src/components/DigestPage';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
+const log = getLogger('App');
 const defaultAes = AESTHETICS.editorial;
 
 export default function App(): React.ReactElement {
@@ -130,12 +132,13 @@ export function RootScreens({
   const article = useAppStore((s) => s.article);
   const setArticle = useAppStore((s) => s.setArticle);
   const setScreen = useAppStore((s) => s.setScreen);
-  const openLinksIn = useAppStore((s) => s.prefs.openLinksIn);
   const activePageRef = useRef<DigestPageHandle | null>(null);
 
   const onOpenArticle = useCallback(
     (h: Headline, r: Region) => {
-      if (useAppStore.getState().prefs.openLinksIn === 'browser') {
+      const openLinksIn = useAppStore.getState().prefs.openLinksIn;
+      if (openLinksIn === 'browser') {
+        log.debug(`opening article in browser: ${h.url}`);
         openExternalUrl(h.url, { showInRecents: false });
       } else {
         setArticle({ h, r });

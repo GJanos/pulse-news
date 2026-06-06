@@ -249,6 +249,7 @@ export default React.memo(function DigestPager({
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
   const maxDayIndex = useAppStore((s) => maxDayIndexFor(s.prefs.historyDays));
   const showGlobalHeadlines = useAppStore((s) => s.prefs.showGlobalHeadlines);
+  const showCurrencyRates = useAppStore((s) => s.prefs.showCurrencyRates);
   const selectedRegions = useAppStore((s) => s.prefs.selectedRegions);
   const screen = useAppStore((s) => s.screen);
   const setScreen = useAppStore((s) => s.setScreen);
@@ -356,7 +357,9 @@ export default React.memo(function DigestPager({
                   <DigestPage
                     ref={getSlotSetter(pageDayIndex)}
                     dayIndex={pageDayIndex}
-                    active={pageDayIndex === dayIndex}
+                    currencyRatesEnabled={
+                      showCurrencyRates && pageDayIndex === 0 && screen !== 'settings'
+                    }
                     onOpenArticle={onOpenArticle}
                   />
                 ) : null}
