@@ -20,5 +20,7 @@ export function setEdgeExclusion(enabled: boolean): void {
   }
   try {
     nativeModule.setEdgeExclusion(enabled);
-  } catch {}
+  } catch {
+    // noop — native call may throw on some Android versions; don't let it skip cleanup
+  }
 }

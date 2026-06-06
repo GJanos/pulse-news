@@ -41,9 +41,9 @@ const WebView = React.forwardRef<MockRef, WebViewProps>((props, ref) => {
   const mockRef: MockRef = { goBack: jest.fn() };
   React.useImperativeHandle(ref, () => mockRef);
   _last = { props, ref: mockRef };
+  const onLoadStart = React.useRef(props.onLoadStart);
   React.useEffect(() => {
-    props.onLoadStart?.({ nativeEvent: {} } as never);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    onLoadStart.current?.({ nativeEvent: {} } as never);
   }, []);
   return <View testID="mock-webview" />;
 });
