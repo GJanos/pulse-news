@@ -79,7 +79,7 @@ export default function ArticleScreen({
     () =>
       Gesture.Pan()
         .activeOffsetX([-15, 15])
-        .failOffsetY([-12, 12])
+        .failOffsetY([-20, 20])
         .onUpdate((e) => {
           // Track the finger 1:1 in the close direction; clamp the open direction at 0.
           translateX.value = Math.max(0, e.translationX);

@@ -18,5 +18,7 @@ export function setEdgeExclusion(enabled: boolean): void {
   } catch {
     return;
   }
-  nativeModule.setEdgeExclusion(enabled);
+  try {
+    nativeModule.setEdgeExclusion(enabled);
+  } catch {}
 }

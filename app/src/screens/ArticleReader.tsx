@@ -41,11 +41,19 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
   const insets = useSafeAreaInsets();
   const { width: W } = useWindowDimensions();
   const webViewRef = useRef<WebView>(null);
+  const mountedRef = useRef(true);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   const translateX = useSharedValue(W);
   const canGoBackSV = useSharedValue(false);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     translateX.value = withTiming(0, { duration: 280, easing: Easing.out(Easing.cubic) });
@@ -58,6 +66,7 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
   }, [setReaderBackFn]);
 
   const handleClose = useCallback(() => {
+    if (!mountedRef.current) return;
     onClose();
   }, [onClose]);
 
