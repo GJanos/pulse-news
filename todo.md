@@ -2,7 +2,8 @@
 
 ## V1
 
-- no sufficient logs when changing and swiping between digest screens
+- when navigating to today page it does a firce rerender every time , causing a jerk back effect if the user immediately started scrolling, this is really bad
+
 - i need images in the digest page, to increase user retention
 
 Root Cause Analysis: The .5s Lag

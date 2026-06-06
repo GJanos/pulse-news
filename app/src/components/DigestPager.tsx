@@ -177,7 +177,7 @@ const DayHeader = React.memo(function DayHeader({
           >
             {isToday ? 'Today' : `${dayIndex} ${dayIndex === 1 ? 'day' : 'days'} ago`}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 28 }}>
             <Text
               style={{
                 fontFamily: font(aes, 'title', 600),
@@ -200,6 +200,8 @@ const DayHeader = React.memo(function DayHeader({
                   paddingHorizontal: 10,
                   paddingVertical: 4,
                   borderRadius: 999,
+                  minHeight: 28,
+                  justifyContent: 'center',
                 }}
               >
                 <Text

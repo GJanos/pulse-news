@@ -107,20 +107,6 @@ export const DigestPage = React.memo(
 
     return (
       <View style={{ flex: 1, backgroundColor: theme.bg }}>
-        <View style={styles.metaRow}>
-          <Text
-            style={{
-              fontFamily: font(aes, 'eyebrow', 600),
-              fontSize: 10,
-              letterSpacing: 1.8,
-              color: theme.textFaint,
-              textTransform: 'uppercase',
-            }}
-          >
-            {totalHeadlines} stories · {visible.length} regions
-          </Text>
-        </View>
-
         {isLoading && !error && (
           <View style={styles.centerSpinner}>
             <ActivityIndicator color={theme.textFaint} />
@@ -187,6 +173,21 @@ export const DigestPage = React.memo(
             removeClippedSubviews
             maxToRenderPerBatch={8}
             windowSize={5}
+            ListHeaderComponent={
+              <View style={styles.metaRow}>
+                <Text
+                  style={{
+                    fontFamily: font(aes, 'eyebrow', 600),
+                    fontSize: 10,
+                    letterSpacing: 1.8,
+                    color: theme.textFaint,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {totalHeadlines} stories · {visible.length} regions
+                </Text>
+              </View>
+            }
             ListFooterComponent={
               <View style={styles.footer}>
                 <Text
