@@ -65,25 +65,15 @@ export default function ArticleScreen({
     onClose();
   }, [onClose]);
 
-  const handleCloseRef = useRef(handleClose);
-  useEffect(() => {
-    handleCloseRef.current = handleClose;
-  }, [handleClose]);
-
   const openArticle = useCallback((): void => {
     openExternalUrl(headline.url);
   }, [headline.url]);
 
-  const openArticleRef = useRef(openArticle);
-  useEffect(() => {
-    openArticleRef.current = openArticle;
-  }, [openArticle]);
-
   const animateClose = useCallback(() => {
     translateX.value = withTiming(W, { duration: 200, easing: Easing.in(Easing.cubic) }, () => {
-      runOnJS(handleCloseRef.current)();
+      runOnJS(handleClose)();
     });
-  }, [W, translateX]);
+  }, [W, translateX, handleClose]);
 
   const pan = useMemo(
     () =>
@@ -101,17 +91,17 @@ export default function ArticleScreen({
               W,
               { duration: 200, easing: Easing.in(Easing.cubic) },
               () => {
-                runOnJS(handleCloseRef.current)();
+                runOnJS(handleClose)();
               },
             );
           } else if (action === 'open') {
             translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
-            runOnJS(openArticleRef.current)();
+            runOnJS(openArticle)();
           } else {
             translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
           }
         }),
-    [],
+    [W, handleClose, openArticle],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({

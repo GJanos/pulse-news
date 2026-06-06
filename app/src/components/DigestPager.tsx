@@ -12,6 +12,7 @@ import { PressableScale } from 'react-native-pressable-scale';
 import { DigestPage, type DigestPageHandle } from './DigestPage';
 import PulseIcon from './Icon';
 import PinnedHeaderBar from './PinnedHeaderBar';
+import { ErrorBoundary } from './ErrorBoundary';
 import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes';
 import { isoDateAtDayIndex, formatLongDate } from '../data';
 import { useAppStore } from '../store';
@@ -315,7 +316,6 @@ export default React.memo(function DigestPager({
   const onOpenSettings = useCallback(() => setScreen('settings'), [setScreen]);
 
   const canJump = selectedRegions.length + (showGlobalHeadlines ? 1 : 0) > 1;
-  const showSettings = dayIndex === 0 || screen === 'settings';
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -362,9 +362,9 @@ export default React.memo(function DigestPager({
             </View>
           );
         })}
-        {/* settings page — rightmost slot, mounted only when adjacent/open */}
+        {/* settings page — rightmost slot, kept mounted to avoid expensive re-initialization on swipe */}
         <View key="settings" style={{ width: W }}>
-          {showSettings ? settingsSlot : null}
+          <ErrorBoundary>{settingsSlot}</ErrorBoundary>
         </View>
       </Animated.ScrollView>
 

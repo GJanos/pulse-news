@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, BackHandler, Platform } from 'react-native';
 import { NavigationBar } from 'expo-navigation-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -135,13 +135,26 @@ export function RootScreens({
 
   const onOpenArticle = useCallback(
     (h: Headline, r: Region) => {
-      if (openLinksIn === 'browser') {
+      if (useAppStore.getState().prefs.openLinksIn === 'browser') {
         openExternalUrl(h.url, { showInRecents: false });
       } else {
         setArticle({ h, r });
       }
     },
-    [openLinksIn, setArticle],
+    [setArticle],
+  );
+
+  const settingsSlot = useMemo(
+    () => (
+      <SettingsScreen
+        embedded
+        onLogout={() => {
+          void actions.signOut();
+        }}
+        onDeleteAccount={actions.deleteAccount}
+      />
+    ),
+    [actions.deleteAccount, actions.signOut],
   );
 
   useEffect(() => {
@@ -200,15 +213,7 @@ export function RootScreens({
         <DigestPager
           dayIndex={dayIndex}
           setDayIndex={setDayIndex}
-          settingsSlot={
-            <SettingsScreen
-              embedded
-              onLogout={() => {
-                void actions.signOut();
-              }}
-              onDeleteAccount={actions.deleteAccount}
-            />
-          }
+          settingsSlot={settingsSlot}
           onOpenArticle={onOpenArticle}
           activePageRef={activePageRef}
         />

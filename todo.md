@@ -4,8 +4,29 @@
 
 - no sufficient logs when changing and swiping between digest screens
 - i need images in the digest page, to increase user retention
-- ip: Run /install-github-app to tag @claude right from your Github issues and
-  PRs
+
+Root Cause Analysis: The .5s Lag
+Your observation:
+
+when going dt → d(t-1) → dt → settings, settings sits blank for .5s until interactive
+
+My Assessment:
+
+The lag is not caused by:
+
+❌ Settings screen not being mounted (now fixed)
+❌ Reanimated worklet warnings (already fixed)
+❌ ScrollView responsiveness (paging is handled UI-thread side)
+Likely causes:
+
+RegionPicker initialization — On first touch, useEffect in RegionPicker re-sorts orderedRegions; React re-renders RegionSection × N regions
+CurrencyPicker first open — Currency picker may do async work (lookup, format) on first interaction
+FlatList computation — listData and indexMapRef in DigestPage are computed on first mount; if many regions/headlines, this JS work blocks the thread
+
+LOG 2026-06-06T09:09:45.950Z DEBUG (digests) multiGet: 9/9 cache hits for 2026-06-04
+LOG 2026-06-06T09:09:45.951Z INFO (useGlobalHeadlines) fetching global headlines for 2026-06-04
+LOG 2026-06-06T09:09:45.952Z INFO (digests) loading global headlines for 2026-06-04
+LOG VirtualizedList: You have a large list that is slow to update - make sure your renderItem function renders components that follow React performance best practices like PureComponent, shouldComponentUpdate, etc. {"contentLength": 12446.857421875, "dt": 780, "prevDt": 132991}
 
 ### Deployment
 
@@ -26,24 +47,16 @@
 
 ### Bugs
 
-- [ ] slow rendering of digest screen top navigation headline
 - [ ] Notifications are often missed due to Android issues
 
 ### UI & Polish
 
 - [ ] Lock vertical screen orientation while using the app
-- [ ] Swipe navigation should be more sensitive
 
 ### Behaviour
 
 - [ ] Android swipe navigation should be disabled because it interferes with app gestures
   - When an article is opened in the browser or via the "Open Article" button, enable left-swipe back navigation again
-
-  > **Notes:** The DigestPager uses RNGH pan for horizontal navigation — left/right edges where Android 10+ wants the system back gesture. Conflict is real. Use `View.systemGestureExclusionRects` (Android only, per-View opt-in). Caveats: max 200dp per edge, newer RN/Expo only. Avoid `setNavigationMode` — requires custom native code.
-  >
-  > Restoring system edge-swipe-back on the article screen is automatic — just don't apply `systemGestureExclusionRects` there. A JS-level pan-to-close is a separate GestureDetector and more work.
-
-- [ ] Swiping needs to be adjusted again
 
 - [ ] refactor costs logging in cron. Have normal log lines like before, but they also need to be refactored, but the main thing is I would love for a run to create a large json object of the data being logged in a format that is transmittable via http, but we kind of already have that, just it needs improvements
 
