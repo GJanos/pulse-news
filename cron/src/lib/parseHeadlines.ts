@@ -8,7 +8,6 @@ import {
   isFakePlaceholder,
 } from './urlUtils';
 import { stripCitations, summaryHasUrl } from './textUtils';
-import { matchImages } from './imageUtils';
 
 type Log = { debug(msg: string): void; info(msg: string): void; warn(msg: string): void };
 
@@ -22,13 +21,6 @@ interface PerplexityCompletion {
   };
   citations?: string[];
   search_results?: Array<{ title: string; url: string; snippet?: string; date?: string }>;
-  images?: Array<{
-    image_url: string;
-    origin_url: string;
-    title?: string;
-    width?: number;
-    height?: number;
-  }>;
 }
 
 interface ParseResult {
@@ -139,62 +131,6 @@ export async function parseHeadlines(
     const slug = urlSlug(headline.url);
     if (slug) usedSlugs.add(slug);
   });
-
-  // ── Image matching (spike: compute & log only — no persistence) ──
-  const acceptedHeadlines = accepted.map((c) => c.headline);
-  const imageResult = matchImages(acceptedHeadlines, body.images ?? []);
-  accepted.forEach(({ headline, quality }, i) => {
-    const m = imageResult.matches[i];
-    if (!m) return;
-    if (m.imageUrl) headline.imageUrl = m.imageUrl;
-    quality.imageUrl = m.imageUrl ?? undefined;
-    quality.imageMatchMethod = m.method;
-    quality.imageMatchScore = m.score;
-  });
-
-  const rawImageCount = (body.images ?? []).length;
-  const droppedCount = imageResult.dropped.length;
-  const survivingCount = rawImageCount - droppedCount;
-  const methodCounts: Record<'origin-exact' | 'origin-slug' | 'title-fuzzy', number> = {
-    'origin-exact': 0,
-    'origin-slug': 0,
-    'title-fuzzy': 0,
-  };
-  let matchedCount = 0;
-  for (const m of imageResult.matches) {
-    if (m.method !== 'none') {
-      matchedCount++;
-      methodCounts[m.method]++;
-    }
-  }
-  log.info(
-    `images: ${rawImageCount} raw, ${droppedCount} dropped (too-small/bad-url), ` +
-      `matched ${matchedCount}/${survivingCount} — exact:${methodCounts['origin-exact']} ` +
-      `slug:${methodCounts['origin-slug']} fuzzy:${methodCounts['title-fuzzy']}`,
-  );
-
-  // TEMP: image-quality spike — remove before prod.
-  // Logs every returned image exactly once (matched ∪ dropped ∪ unmatched), all fields.
-  const dim = (w?: number, h?: number) => `${w ?? '?'}x${h ?? '?'}`;
-  imageResult.matches.forEach((m, i) => {
-    if (!m.image) return;
-    const img = m.image;
-    const hl = acceptedHeadlines[i];
-    log.debug(
-      `[img] ${dim(img.width, img.height)} matched(${m.method}) "${img.title ?? ''}" ` +
-        `${img.image_url} ← ${img.origin_url} (→ ${hl?.title ?? ''})`,
-    );
-  });
-  imageResult.dropped.forEach((d) =>
-    log.debug(`[img] ${dim(d.width, d.height)} dropped(${d.reason}) ${d.image_url}`),
-  );
-  imageResult.unmatched.forEach((img) =>
-    log.debug(
-      `[img] ${dim(img.width, img.height)} unmatched "${img.title ?? ''}" ` +
-        `${img.image_url} ← ${img.origin_url}`,
-    ),
-  );
-  // END TEMP
 
   return {
     headlines: accepted.map((c) => c.headline),
