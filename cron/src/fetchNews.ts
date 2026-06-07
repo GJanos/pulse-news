@@ -237,8 +237,9 @@ export class PerplexitySource implements DigestSource {
 
     const acceptedQualities = allQualities.slice(0, count);
 
-    // ── og:image extraction (spike: compute & log only — no persistence) ──
-    // headlines is the ranked order; align quality records back by URL.
+    // ── og:image extraction — match one image per ranked headline ──
+    // headlines is the ranked order; imageUrl is attached to each headline (persisted
+    // via the digest payload) and mirrored onto the quality records (run log only) by URL.
     const ogImages = await fetchOgImages(headlines);
     const ogCounts: Record<ImageSource, number> = { og: 0, twitter: 0, none: 0 };
     headlines.forEach((h, i) => {

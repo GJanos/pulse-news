@@ -63,6 +63,8 @@ export interface GlobalHeadline {
   url: string;
   region: string;
   sourceName?: string;
+  /** og:image URL matched for the source headline; persisted in the global digest payload. */
+  imageUrl?: string;
 }
 
 export interface RankingResult {
@@ -161,6 +163,7 @@ type Candidate = {
   detail?: string;
   url: string;
   sourceName?: string;
+  imageUrl?: string;
 };
 
 async function globalRankingPass(
@@ -217,6 +220,7 @@ async function globalRankingPass(
       url: c.url,
       region: c.region,
       sourceName: c.sourceName,
+      imageUrl: c.imageUrl,
     };
   });
 }
@@ -243,6 +247,7 @@ export async function rankGlobalHeadlines(
       detail: h.detail,
       url: h.url,
       sourceName: h.sourceName,
+      imageUrl: h.imageUrl,
     })),
   );
   if (candidates.length === 0) return [];

@@ -77,7 +77,14 @@ const makeConfig = (evict = false): PulseConfig => ({
 const makeDigests = (regions: string[]): RegionDigest[] =>
   regions.map((region) => ({
     region,
-    headlines: [{ title: `${region} headline`, summary: 'summary', url: 'https://example.com/1' }],
+    headlines: [
+      {
+        title: `${region} headline`,
+        summary: 'summary',
+        url: 'https://example.com/1',
+        imageUrl: 'https://img.example.com/1.jpg',
+      },
+    ],
     attempts: 1,
   }));
 
@@ -116,11 +123,17 @@ describe('persistDigests', () => {
     await persistDigests(digests, makeConfig());
 
     const [rows] = mockSupabase.upsert.mock.calls[0] as [
-      Array<{ region: string; date: string; payload: { headlines: unknown[] } }>,
+      Array<{
+        region: string;
+        date: string;
+        payload: { headlines: Array<{ imageUrl?: string }> };
+      }>,
       unknown,
     ];
     expect(rows[0]!.date).toBe(today);
     expect(rows[0]!.payload.headlines).toHaveLength(1);
+    // The matched og:image must travel into the persisted payload.
+    expect(rows[0]!.payload.headlines[0]!.imageUrl).toBe('https://img.example.com/1.jpg');
   });
 
   it('throws when upsert returns an error', async () => {
