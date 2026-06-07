@@ -20,6 +20,10 @@ export interface FetchOgImageOptions {
 // excluding logos/icons.
 export const MIN_IMAGE_WIDTH = 400;
 export const MIN_IMAGE_HEIGHT = 300;
+// Reject square and portrait images (ratio <= 1.0) when both dimensions are declared.
+// Publisher brand logos served as og:image defaults (e.g. NPR 1400×1400) are square;
+// real editorial news photos are always landscape.
+export const MIN_ASPECT_RATIO = 1.0;
 
 const DEFAULT_TIMEOUT_MS = 5000;
 // A realistic desktop UA — many publishers 403 non-browser agents.
@@ -81,7 +85,8 @@ export function parseOgImage(html: string, pageUrl: string): OgImageResult {
 
   if (
     (width !== undefined && width < MIN_IMAGE_WIDTH) ||
-    (height !== undefined && height < MIN_IMAGE_HEIGHT)
+    (height !== undefined && height < MIN_IMAGE_HEIGHT) ||
+    (width !== undefined && height !== undefined && width / height <= MIN_ASPECT_RATIO)
   ) {
     return { imageUrl: null, source: 'none' };
   }
@@ -119,10 +124,28 @@ export async function fetchOgImage(
   }
 }
 
+/**
+ * Nulls out any imageUrl that appears more than once in a batch. Repeated URLs
+ * are site-wide defaults (publisher logos, placeholder art) not editorial photos.
+ */
+export function deduplicateOgImages(results: OgImageResult[]): OgImageResult[] {
+  const urlCount = new Map<string, number>();
+  for (const r of results) {
+    if (r.imageUrl) urlCount.set(r.imageUrl, (urlCount.get(r.imageUrl) ?? 0) + 1);
+  }
+  return results.map((r) => {
+    if (r.imageUrl && (urlCount.get(r.imageUrl) ?? 0) > 1) {
+      return { imageUrl: null, source: 'none' };
+    }
+    return r;
+  });
+}
+
 /** Fetches og images for headlines in parallel, aligned 1:1 with input order. */
 export async function fetchOgImages(
   headlines: Array<{ url: string }>,
   opts?: FetchOgImageOptions,
 ): Promise<OgImageResult[]> {
-  return Promise.all(headlines.map((h) => fetchOgImage(h.url, opts)));
+  const results = await Promise.all(headlines.map((h) => fetchOgImage(h.url, opts)));
+  return deduplicateOgImages(results);
 }
