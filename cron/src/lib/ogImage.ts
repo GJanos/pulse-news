@@ -15,8 +15,11 @@ export interface FetchOgImageOptions {
 }
 
 // Relocated from the deleted imageUtils.ts — og parsing is the only consumer left.
+// Height floor tuned down from 400 against live data: legit landscape news cards
+// (e.g. ukrinform's 630×360) were being dropped; 300 keeps them while still
+// excluding logos/icons.
 export const MIN_IMAGE_WIDTH = 400;
-export const MIN_IMAGE_HEIGHT = 400;
+export const MIN_IMAGE_HEIGHT = 300;
 
 const DEFAULT_TIMEOUT_MS = 5000;
 // A realistic desktop UA — many publishers 403 non-browser agents.
