@@ -214,3 +214,22 @@ describe('syncPreferences', () => {
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 });
+
+describe('DEFAULT_PREFERENCES image keys', () => {
+  it('defaults images on with a photo count of 2', () => {
+    expect(DEFAULT_PREFERENCES.imagesEnabled).toBe(true);
+    expect(DEFAULT_PREFERENCES.photoCount).toBe(2);
+  });
+
+  it('fills image defaults when a legacy cached blob omits them', async () => {
+    const { storage } = await import('../../storage/mmkv');
+    // Legacy blob without the new keys.
+    storage.set(
+      'pulse.preferences.v1',
+      JSON.stringify({ theme: 'dark', updatedAt: new Date(1).toISOString() }),
+    );
+    const loaded = await loadLocalPreferences();
+    expect(loaded?.imagesEnabled).toBe(true);
+    expect(loaded?.photoCount).toBe(2);
+  });
+});

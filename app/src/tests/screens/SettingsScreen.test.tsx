@@ -14,6 +14,8 @@ jest.mock('../../storage/preferences', () => ({
     notifyTime: '07:30',
     openLinksIn: 'in-app',
     regionStyle: 'flag',
+    imagesEnabled: true,
+    photoCount: 2,
     baseCurrency: 'USD',
     showCurrencyRates: false,
     showGlobalHeadlines: true,
