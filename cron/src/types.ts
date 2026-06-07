@@ -5,6 +5,8 @@ export interface RegionHeadline {
   url: string;
   category?: string;
   sourceName?: string;
+  /** Computed by image matching — not yet persisted to the DB. */
+  imageUrl?: string;
 }
 
 export interface DigestUsage {
@@ -46,6 +48,10 @@ export interface HeadlineQuality {
   recencyRound: number;
   /** True when Perplexity embedded a hyperlink inside the summary text. */
   summaryHasUrl: boolean;
+  /** Image-match outputs (spike) — computed, not persisted. */
+  imageUrl?: string;
+  imageMatchMethod?: string;
+  imageMatchScore?: number;
 }
 
 export interface DigestQuality {
