@@ -1,3 +1,5 @@
+import type { ImageSource } from './lib/ogImage';
+
 export interface RegionHeadline {
   title: string;
   summary: string;
@@ -5,6 +7,8 @@ export interface RegionHeadline {
   url: string;
   category?: string;
   sourceName?: string;
+  /** Computed by image matching — not yet persisted to the DB. */
+  imageUrl?: string;
 }
 
 export interface DigestUsage {
@@ -46,6 +50,9 @@ export interface HeadlineQuality {
   recencyRound: number;
   /** True when Perplexity embedded a hyperlink inside the summary text. */
   summaryHasUrl: boolean;
+  /** og:image outputs (spike) — computed, not persisted. */
+  imageUrl?: string;
+  imageSource?: ImageSource;
 }
 
 export interface DigestQuality {

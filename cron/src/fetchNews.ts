@@ -16,6 +16,8 @@ import type {
 } from './types';
 import { rankHeadlines } from './rankHeadlines';
 import type { RankingResult } from './rankHeadlines';
+import { fetchOgImages } from './lib/ogImage';
+import type { ImageSource } from './lib/ogImage';
 
 type Log = { debug(msg: string): void; info(msg: string): void; warn(msg: string): void };
 
@@ -234,6 +236,27 @@ export class PerplexitySource implements DigestSource {
     const rankingUsage = rankResult.usage ?? undefined;
 
     const acceptedQualities = allQualities.slice(0, count);
+
+    // ── og:image extraction (spike: compute & log only — no persistence) ──
+    // headlines is the ranked order; align quality records back by URL.
+    const ogImages = await fetchOgImages(headlines);
+    const ogCounts: Record<ImageSource, number> = { og: 0, twitter: 0, none: 0 };
+    headlines.forEach((h, i) => {
+      const og = ogImages[i];
+      if (!og) return;
+      h.imageUrl = og.imageUrl ?? undefined;
+      ogCounts[og.source]++;
+      const q = acceptedQualities.find((x) => x.url === h.url);
+      if (q) {
+        q.imageUrl = og.imageUrl ?? undefined;
+        q.imageSource = og.source;
+      }
+    });
+    logger.info(
+      `og:image [${region}] — ${ogCounts.og + ogCounts.twitter}/${headlines.length} ` +
+        `(og:${ogCounts.og} twitter:${ogCounts.twitter} none:${ogCounts.none})`,
+    );
+
     const filterRejectRate =
       totalCandidatesGenerated > 0
         ? (totalUrlFilterDropCount + topicDropCount) / totalCandidatesGenerated

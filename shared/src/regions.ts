@@ -37,8 +37,8 @@ export const REGIONS: Region[] = [
     currency: 'UAH',
     sources: [
       'Kyiv Independent (kyivindependent.com)',
-      'Ukrinform (ukrinform.ua)',
-      'RFE/RL Ukraine (rferl.org)',
+      'Ukrinform (ukrinform.net)',
+      'The New Voice of Ukraine (english.nv.ua)',
     ],
   },
   {
@@ -50,7 +50,7 @@ export const REGIONS: Region[] = [
     sources: [
       'Moscow Times (themoscowtimes.com)',
       'Meduza (meduza.io)',
-      'RFE/RL Russia (rferl.org)',
+      'Novaya Gazeta Europe (novayagazeta.eu)',
     ],
   },
   {
@@ -62,7 +62,7 @@ export const REGIONS: Region[] = [
     sources: [
       'BBC News (bbc.co.uk/news)',
       'The Guardian (theguardian.com)',
-      'Sky News (news.sky.com)',
+      'i (inews.co.uk)',
       'The Independent (independent.co.uk)',
     ],
   },
@@ -75,7 +75,7 @@ export const REGIONS: Region[] = [
     sources: [
       'Jerusalem Post (jpost.com)',
       'Haaretz (haaretz.com)',
-      'Reuters Israel (reuters.com)',
+      'Times of Israel (timesofisrael.com)',
       'Ynet News (ynetnews.com)',
     ],
   },
@@ -87,7 +87,7 @@ export const REGIONS: Region[] = [
     currency: 'IRR',
     sources: [
       'Iran International (iranintl.com)',
-      'RFE/RL Iran (rferl.org)',
+      'Tehran Times (tehrantimes.com)',
       'Al Jazeera Iran (aljazeera.com)',
     ],
   },
@@ -100,7 +100,7 @@ export const REGIONS: Region[] = [
     sources: [
       'South China Morning Post (scmp.com)',
       'Caixin Global (caixinglobal.com)',
-      'Reuters China (reuters.com)',
+      'The Diplomat (thediplomat.com)',
     ],
   },
   {
@@ -124,10 +124,10 @@ export const REGIONS: Region[] = [
     currency: 'USD',
     sources: [
       'AP News (apnews.com)',
-      'Reuters (reuters.com)',
-      'Politico (politico.com)',
-      'The Hill (thehill.com)',
-      'Axios (axios.com)',
+      'NBC News (nbcnews.com)',
+      'CBS News (cbsnews.com)',
+      'NPR (npr.org)',
+      'The Guardian US (theguardian.com)',
     ],
   },
 ];
