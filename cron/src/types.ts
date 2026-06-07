@@ -7,7 +7,7 @@ export interface RegionHeadline {
   url: string;
   category?: string;
   sourceName?: string;
-  /** Computed by image matching — not yet persisted to the DB. */
+  /** og:image URL matched per headline; persisted in the digest payload. */
   imageUrl?: string;
 }
 
@@ -50,7 +50,7 @@ export interface HeadlineQuality {
   recencyRound: number;
   /** True when Perplexity embedded a hyperlink inside the summary text. */
   summaryHasUrl: boolean;
-  /** og:image outputs (spike) — computed, not persisted. */
+  /** og:image outputs for the run log — written to the quality log, not the DB. */
   imageUrl?: string;
   imageSource?: ImageSource;
 }

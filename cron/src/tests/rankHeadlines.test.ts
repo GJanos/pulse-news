@@ -185,6 +185,7 @@ const makeDigests = (regions: string[], headlinesPerRegion: number) =>
       title: `${region} headline ${i + 1}`,
       summary: `${region} summary ${i + 1}`,
       url: `https://example.com/${region}/${i + 1}`,
+      imageUrl: `https://img.example.com/${region}/${i + 1}.jpg`,
     })),
     attempts: 1,
   }));
@@ -241,6 +242,9 @@ describe('rankGlobalHeadlines', () => {
     expect(result).toHaveLength(2);
     expect(result[0]!.region).toBe('Hungary'); // candidate 1 is Hungary headline 1
     expect(result[1]!.region).toBe('United States'); // candidate 3 is US headline 1
+    // imageUrl must thread through to the global headline so it persists in the global digest.
+    expect(result[0]!.imageUrl).toBe('https://img.example.com/Hungary/1.jpg');
+    expect(result[1]!.imageUrl).toBe('https://img.example.com/United States/1.jpg');
   });
 
   it('runs two rounds when candidates exceed chunkSize', async () => {
