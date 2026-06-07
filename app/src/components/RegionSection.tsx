@@ -2,9 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { PressableScale } from 'react-native-pressable-scale';
 import { THEMES, AESTHETICS, font } from '../themes';
+import type { Theme, Aesthetic } from '../themes';
 import PulseIcon from './Icon';
 import Flag from './Flag';
 import { CurrencyChip } from './CurrencyChip';
+import { HeadlineImage } from './HeadlineImage';
 import type { CurrencyRate } from '../hooks/useCurrencyRates';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
@@ -16,16 +18,63 @@ interface RegionSectionProps {
   onOpenArticle: (h: Headline, r: Region) => void;
 }
 
+function SourceRow({
+  h,
+  theme,
+  aes,
+}: {
+  h: Headline;
+  theme: Theme;
+  aes: Aesthetic;
+}): React.ReactElement | null {
+  if (!h.sourceName) return null;
+  return (
+    <View style={s.sourceRow}>
+      <Text
+        style={{
+          fontFamily: font(aes, 'ui', 600),
+          fontSize: 12,
+          color: theme.accent,
+          letterSpacing: -0.05,
+        }}
+      >
+        {h.sourceName}
+      </Text>
+      <PulseIcon name="link" size={11} color={theme.accent} strokeWidth={1.8} />
+    </View>
+  );
+}
+
 function RegionSectionImpl({
   bucket,
   currencyRate,
   onOpenArticle,
 }: RegionSectionProps): React.ReactElement {
-  const theme = useAppStore((s) => THEMES[s.prefs.theme]);
-  const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
-  const baseCurrency = useAppStore((s) => s.prefs.baseCurrency);
-  const regionStyle = useAppStore((s) => s.prefs.regionStyle);
+  const theme = useAppStore((st) => THEMES[st.prefs.theme]);
+  const aes = useAppStore((st) => AESTHETICS[st.prefs.aesthetic]);
+  const themeId = useAppStore((st) => st.prefs.theme);
+  const baseCurrency = useAppStore((st) => st.prefs.baseCurrency);
+  const regionStyle = useAppStore((st) => st.prefs.regionStyle);
+  const imagesEnabled = useAppStore((st) => st.prefs.imagesEnabled);
+  const photoCount = useAppStore((st) => st.prefs.photoCount);
   const showFlags = regionStyle !== 'code';
+  const imagesOn = imagesEnabled !== false;
+  const pillBg = themeId === 'dark' ? 'rgba(17,17,16,0.62)' : 'rgba(255,255,255,0.64)';
+
+  const numberStyle = {
+    fontFamily: font(aes, 'number', 500),
+    fontSize: aes.numberSize,
+    lineHeight: 16,
+    color: theme.textFaint,
+    letterSpacing: 0.2,
+  };
+  const summaryStyle = {
+    fontFamily: font(aes, 'body'),
+    fontSize: aes.bodySize,
+    lineHeight: aes.bodyLh,
+    color: theme.textDim,
+    marginTop: 8,
+  };
 
   return (
     <View style={s.container}>
@@ -90,74 +139,115 @@ function RegionSectionImpl({
         )}
       </View>
 
-      {bucket.items.map((h, i) => (
-        <PressableScale
-          key={`${h.url}-${i}`}
-          onPress={() => onOpenArticle(h, bucket.region)}
-          accessibilityLabel={h.title}
-          activeScale={0.94}
-          style={[
-            s.headlineRow,
-            {
-              borderBottomColor: theme.rule,
-              borderBottomWidth: i < bucket.items.length - 1 ? StyleSheet.hairlineWidth : 0,
-            },
-          ]}
-        >
-          <View style={s.numberCol}>
-            <Text
-              style={{
-                fontFamily: font(aes, 'number', 500),
-                fontSize: aes.numberSize,
-                lineHeight: 16,
-                color: theme.textFaint,
-                letterSpacing: 0.2,
-              }}
+      {bucket.items.map((h, i) => {
+        const hasBorder = i < bucket.items.length - 1;
+        const borderStyle = {
+          borderBottomColor: theme.rule,
+          borderBottomWidth: hasBorder ? StyleSheet.hairlineWidth : 0,
+        };
+        const isLead = imagesOn && i === 0 && !!h.imageUrl;
+        const isThumb = imagesOn && i > 0 && i < photoCount && !!h.imageUrl;
+
+        if (isLead) {
+          return (
+            <PressableScale
+              key={`${h.url}-${i}`}
+              onPress={() => onOpenArticle(h, bucket.region)}
+              accessibilityLabel={h.title}
+              activeScale={0.94}
+              style={[s.leadRow, borderStyle]}
             >
-              {i + 1}
-            </Text>
-          </View>
-          <View style={s.content}>
-            <Text
-              style={{
-                fontFamily: font(aes, 'title', aes.roles.title.weight),
-                fontSize: aes.titleSize,
-                lineHeight: aes.titleLh,
-                letterSpacing: aes.titleLetter,
-                color: theme.text,
-              }}
-            >
-              {h.title}
-            </Text>
-            <Text
-              style={{
-                fontFamily: font(aes, 'body'),
-                fontSize: aes.bodySize,
-                lineHeight: aes.bodyLh,
-                color: theme.textDim,
-                marginTop: 8,
-              }}
-            >
-              {h.summary}
-            </Text>
-            {h.sourceName && (
-              <View style={s.sourceRow}>
-                <Text
-                  style={{
-                    fontFamily: font(aes, 'ui', 600),
-                    fontSize: 12,
-                    color: theme.accent,
-                    letterSpacing: -0.05,
-                  }}
-                >
-                  {h.sourceName}
-                </Text>
-                <PulseIcon name="link" size={11} color={theme.accent} strokeWidth={1.8} />
+              <View style={s.leadImageWrap}>
+                <HeadlineImage
+                  uri={h.imageUrl!}
+                  aspectRatio={3 / 2}
+                  radius={0}
+                  recyclingKey={h.url}
+                  testID="lead-image"
+                />
+                {h.sourceName ? (
+                  <View style={[s.leadPill, { backgroundColor: pillBg }]}>
+                    <Text
+                      style={{
+                        fontFamily: font(aes, 'eyebrow', 500),
+                        fontSize: 8.5,
+                        letterSpacing: 1.2,
+                        textTransform: 'uppercase',
+                        color: theme.textDim,
+                      }}
+                    >
+                      {h.sourceName}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
-            )}
-          </View>
-        </PressableScale>
-      ))}
+              <View style={s.leadBody}>
+                <View style={s.numberCol}>
+                  <Text style={numberStyle}>{i + 1}</Text>
+                </View>
+                <View style={s.content}>
+                  <Text
+                    style={{
+                      fontFamily: font(aes, 'title', aes.roles.title.weight),
+                      fontSize: aes.titleSize + 3,
+                      lineHeight: aes.titleLh + 3,
+                      letterSpacing: aes.titleLetter,
+                      color: theme.text,
+                    }}
+                  >
+                    {h.title}
+                  </Text>
+                  <Text style={summaryStyle}>{h.summary}</Text>
+                  <SourceRow h={h} theme={theme} aes={aes} />
+                </View>
+              </View>
+            </PressableScale>
+          );
+        }
+
+        return (
+          <PressableScale
+            key={`${h.url}-${i}`}
+            onPress={() => onOpenArticle(h, bucket.region)}
+            accessibilityLabel={h.title}
+            activeScale={0.94}
+            style={[s.headlineRow, borderStyle]}
+          >
+            <View style={s.numberCol}>
+              <Text style={numberStyle}>{i + 1}</Text>
+            </View>
+            <View style={s.content}>
+              <View style={s.rowBody}>
+                <View style={s.textBlock}>
+                  <Text
+                    style={{
+                      fontFamily: font(aes, 'title', aes.roles.title.weight),
+                      fontSize: aes.titleSize,
+                      lineHeight: aes.titleLh,
+                      letterSpacing: aes.titleLetter,
+                      color: theme.text,
+                    }}
+                  >
+                    {h.title}
+                  </Text>
+                  <Text style={summaryStyle}>{h.summary}</Text>
+                </View>
+                {isThumb ? (
+                  <HeadlineImage
+                    uri={h.imageUrl!}
+                    size={74}
+                    radius={8}
+                    recyclingKey={h.url}
+                    testID="thumb-image"
+                    style={s.thumb}
+                  />
+                ) : null}
+              </View>
+              <SourceRow h={h} theme={theme} aes={aes} />
+            </View>
+          </PressableScale>
+        );
+      })}
     </View>
   );
 }
@@ -183,7 +273,21 @@ const s = StyleSheet.create({
     marginLeft: -3,
   },
   headlineRow: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 18 },
+  leadRow: { paddingBottom: 18 },
+  leadImageWrap: { position: 'relative', width: '100%' },
+  leadPill: {
+    position: 'absolute',
+    left: 10,
+    bottom: 9,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  leadBody: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 14 },
   numberCol: { width: 32, paddingTop: 2 },
   content: { flex: 1 },
+  rowBody: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  textBlock: { flex: 1, minWidth: 0 },
+  thumb: { marginTop: 2 },
   sourceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 5 },
 });
