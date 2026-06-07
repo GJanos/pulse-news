@@ -75,7 +75,7 @@ interface SearchResult {
   date?: string;
 }
 
-function tokenise(title: string): string[] {
+export function tokenise(title: string): string[] {
   return (title.toLowerCase().match(/\w+/g) ?? []).filter((w) => w.length >= 4);
 }
 
