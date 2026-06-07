@@ -4,6 +4,13 @@ import type { DigestRequest } from '../types';
 
 jest.mock('../lib/perplexityClient');
 jest.mock('../logging');
+// Stub the og:image network layer — fetchDigest calls it on the ranked set, and
+// unit tests must not make real HTTP requests to the fixture URLs.
+jest.mock('../lib/ogImage', () => ({
+  fetchOgImages: jest.fn((headlines: Array<{ url: string }>) =>
+    Promise.resolve(headlines.map(() => ({ imageUrl: null, source: 'none' as const }))),
+  ),
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { callPerplexity } = require('../lib/perplexityClient');
