@@ -73,6 +73,7 @@ export class PerplexitySource implements DigestSource {
     const m = this.config.model;
     return {
       model: m.name,
+      return_images: true,
       messages: [
         {
           role: 'system',

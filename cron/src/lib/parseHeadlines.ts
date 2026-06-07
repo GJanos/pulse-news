@@ -21,6 +21,13 @@ interface PerplexityCompletion {
   };
   citations?: string[];
   search_results?: Array<{ title: string; url: string; snippet?: string; date?: string }>;
+  images?: Array<{
+    image_url: string;
+    origin_url: string;
+    title?: string;
+    width?: number;
+    height?: number;
+  }>;
 }
 
 interface ParseResult {
