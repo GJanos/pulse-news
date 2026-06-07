@@ -247,6 +247,43 @@ export default function SettingsScreen({
           />
         </Group>
 
+        <Group theme={theme} aes={aes} label="Images">
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Show photos"
+            sub="Lead + thumbnail on the top stories per region."
+            value={
+              <Switch
+                value={prefs.imagesEnabled}
+                onValueChange={(v) => setPref('imagesEnabled', v)}
+                trackColor={{ false: theme.chip, true: theme.accent }}
+                thumbColor={theme.bg}
+                accessibilityLabel="Show photos"
+              />
+            }
+          />
+          {prefs.imagesEnabled && (
+            <Row
+              theme={theme}
+              aes={aes}
+              label="Photos per region"
+              sub="Max stories per region that show a photo. 1 = lead only."
+              value={
+                <Stepper
+                  theme={theme}
+                  aes={aes}
+                  value={prefs.photoCount}
+                  min={1}
+                  max={3}
+                  icons
+                  onChange={(v) => setPref('photoCount', v)}
+                />
+              }
+            />
+          )}
+        </Group>
+
         <Group theme={theme} aes={aes} label="Display">
           <Row
             theme={theme}
