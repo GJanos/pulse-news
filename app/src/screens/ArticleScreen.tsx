@@ -193,8 +193,10 @@ export default function ArticleScreen({
               height={22}
             />
             <Text
+              numberOfLines={1}
               style={{
                 marginLeft: 14,
+                flex: 1,
                 fontFamily: font(aes, 'body'),
                 fontSize: 18,
                 color: theme.textDim,
@@ -203,7 +205,7 @@ export default function ArticleScreen({
               {region.region}
             </Text>
             {headline.category && (
-              <View style={[s.categoryChip, { backgroundColor: theme.accentSoft, marginLeft: 14 }]}>
+              <View style={[s.categoryChip, { backgroundColor: theme.accentSoft, marginLeft: 10 }]}>
                 <Text
                   style={{
                     fontFamily: font(aes, 'eyebrow', 600),
@@ -361,7 +363,6 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
   },
   categoryChip: {
     paddingHorizontal: 10,

@@ -49,7 +49,7 @@ export const REGIONS: Region[] = [
     currency: 'RUB',
     sources: [
       'Moscow Times (themoscowtimes.com)',
-      'Meduza (meduza.io)',
+      'Radio Free Europe/Radio Liberty (rferl.org)',
       'Novaya Gazeta Europe (novayagazeta.eu)',
     ],
   },

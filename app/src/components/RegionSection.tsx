@@ -18,7 +18,7 @@ interface RegionSectionProps {
   onOpenArticle: (h: Headline, r: Region) => void;
 }
 
-function SourceRow({
+function HeadlineFoot({
   h,
   theme,
   aes,
@@ -27,20 +27,37 @@ function SourceRow({
   theme: Theme;
   aes: Aesthetic;
 }): React.ReactElement | null {
-  if (!h.sourceName) return null;
+  if (!h.sourceName && !h.category) return null;
   return (
-    <View style={s.sourceRow}>
-      <Text
-        style={{
-          fontFamily: font(aes, 'ui', 600),
-          fontSize: 12,
-          color: theme.accent,
-          letterSpacing: -0.05,
-        }}
-      >
-        {h.sourceName}
-      </Text>
-      <PulseIcon name="link" size={11} color={theme.accent} strokeWidth={1.8} />
+    <View style={s.headlineFoot}>
+      {h.sourceName ? (
+        <View style={s.sourceRow}>
+          <Text
+            style={{
+              fontFamily: font(aes, 'ui', 600),
+              fontSize: 12,
+              color: theme.accent,
+              letterSpacing: -0.05,
+            }}
+          >
+            {h.sourceName}
+          </Text>
+          <PulseIcon name="link" size={11} color={theme.accent} strokeWidth={1.8} />
+        </View>
+      ) : null}
+      {h.category ? (
+        <Text
+          style={{
+            fontFamily: font(aes, 'eyebrow', 600),
+            fontSize: 9.5,
+            letterSpacing: aes.eyebrowLetter,
+            color: theme.textFaint,
+            textTransform: 'uppercase',
+          }}
+        >
+          {h.category}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -212,7 +229,7 @@ function RegionSectionImpl({
                     {h.title}
                   </Text>
                   <Text style={summaryStyle}>{h.summary}</Text>
-                  <SourceRow h={h} theme={theme} aes={aes} />
+                  <HeadlineFoot h={h} theme={theme} aes={aes} />
                 </View>
               </View>
             </PressableScale>
@@ -257,7 +274,7 @@ function RegionSectionImpl({
                   />
                 ) : null}
               </View>
-              <SourceRow h={h} theme={theme} aes={aes} />
+              <HeadlineFoot h={h} theme={theme} aes={aes} />
             </View>
           </PressableScale>
         );
@@ -303,5 +320,11 @@ const s = StyleSheet.create({
   rowBody: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   textBlock: { flex: 1, minWidth: 0 },
   thumb: { marginTop: 2 },
-  sourceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 5 },
+  headlineFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
 });
