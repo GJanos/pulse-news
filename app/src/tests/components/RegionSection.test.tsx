@@ -81,4 +81,17 @@ describe('RegionSection image treatment', () => {
     // #1 lead, #2 thumb, #3 beyond range → exactly one thumb.
     expect(queryAllByTestId('thumb-image')).toHaveLength(1);
   });
+
+  it('shows thumbnails on later stories when top stories have no imageUrl', () => {
+    setPrefs({ photoCount: 2 });
+    const { queryByTestId, queryAllByTestId } = renderSection([
+      h(1, false),
+      h(2, false),
+      h(3, true),
+      h(4, true),
+    ]);
+    // No lead (story #1 has no image). Stories #3 and #4 fill the 2 photo slots as thumbs.
+    expect(queryByTestId('lead-image')).toBeNull();
+    expect(queryAllByTestId('thumb-image')).toHaveLength(2);
+  });
 });

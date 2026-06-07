@@ -76,6 +76,19 @@ function RegionSectionImpl({
     marginTop: 8,
   };
 
+  // Pre-compute which stories get image treatment. Uses count-based logic so later
+  // stories with images fill slots that earlier image-less stories leave empty.
+  const imageVariants: Array<'lead' | 'thumb' | 'text'> = bucket.items.map(() => 'text');
+  if (imagesOn) {
+    let slots = photoCount;
+    bucket.items.forEach((h, i) => {
+      if (slots > 0 && h.imageUrl) {
+        imageVariants[i] = i === 0 ? 'lead' : 'thumb';
+        slots--;
+      }
+    });
+  }
+
   return (
     <View style={s.container}>
       <View
@@ -145,8 +158,9 @@ function RegionSectionImpl({
           borderBottomColor: theme.rule,
           borderBottomWidth: hasBorder ? StyleSheet.hairlineWidth : 0,
         };
-        const isLead = imagesOn && i === 0 && !!h.imageUrl;
-        const isThumb = imagesOn && i > 0 && i < photoCount && !!h.imageUrl;
+        const variant = imageVariants[i] ?? 'text';
+        const isLead = variant === 'lead';
+        const isThumb = variant === 'thumb';
 
         if (isLead) {
           return (

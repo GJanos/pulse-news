@@ -263,13 +263,16 @@ export default function SettingsScreen({
               />
             }
           />
-          {prefs.imagesEnabled && (
-            <Row
-              theme={theme}
-              aes={aes}
-              label="Photos per region"
-              sub="Max stories per region that show a photo. 1 = lead only."
-              value={
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Photos per region"
+            sub="Max stories per region that show a photo. 1 = lead only."
+            value={
+              <View
+                pointerEvents={prefs.imagesEnabled ? 'auto' : 'none'}
+                style={{ opacity: prefs.imagesEnabled ? 1 : 0.35 }}
+              >
                 <Stepper
                   theme={theme}
                   aes={aes}
@@ -279,9 +282,9 @@ export default function SettingsScreen({
                   icons
                   onChange={(v) => setPref('photoCount', v)}
                 />
-              }
-            />
-          )}
+              </View>
+            }
+          />
         </Group>
 
         <Group theme={theme} aes={aes} label="Display">

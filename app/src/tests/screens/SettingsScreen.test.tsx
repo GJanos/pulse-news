@@ -128,10 +128,10 @@ describe('SettingsScreen', () => {
     expect(getByText('Photos per region')).toBeTruthy();
   });
 
-  it('hides the photo-count stepper when images are turned off', () => {
+  it('keeps the photo-count row mounted (dimmed) when images are turned off', () => {
     const { getByLabelText, queryByText } = renderSettings();
     expect(queryByText('Photos per region')).toBeTruthy();
     fireEvent(getByLabelText('Show photos'), 'valueChange', false);
-    expect(queryByText('Photos per region')).toBeNull();
+    expect(queryByText('Photos per region')).toBeTruthy();
   });
 });
