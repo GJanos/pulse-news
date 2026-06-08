@@ -12,18 +12,55 @@ const messagingMocks = {
 jest.mock('@react-native-firebase/messaging', () => messagingMocks);
 jest.mock('expo-notifications', () => ({
   setBadgeCountAsync: jest.fn().mockResolvedValue(undefined),
+  setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
+  AndroidImportance: { HIGH: 4 },
 }));
 
-import { setBadgeCountAsync } from 'expo-notifications';
+import { Platform } from 'react-native';
+import { setBadgeCountAsync, setNotificationChannelAsync } from 'expo-notifications';
 import {
   requestPushPermission,
   getFcmToken,
   getNotificationPermission,
   onFcmTokenRefresh,
   registerNotificationHandlers,
+  ensureDefaultChannel,
+  DEFAULT_CHANNEL_ID,
 } from '../../notifications/fcm';
 
+const setPlatform = (os: 'android' | 'ios'): void => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
+};
+
+// Capture the real OS so each test's setPlatform() mutation can't leak into
+// other suites sharing the react-native module (test order is not guaranteed).
+const originalOS = Platform.OS;
+
 beforeEach(() => jest.clearAllMocks());
+afterEach(() => Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS }));
+
+describe('ensureDefaultChannel', () => {
+  it('creates a HIGH-importance "default" channel with sound on Android', async () => {
+    setPlatform('android');
+    await ensureDefaultChannel();
+    expect(setNotificationChannelAsync).toHaveBeenCalledTimes(1);
+    const [id, channel] = (setNotificationChannelAsync as jest.Mock).mock.calls[0]!;
+    expect(id).toBe(DEFAULT_CHANNEL_ID);
+    expect(channel).toMatchObject({ importance: 4, sound: 'default', enableVibrate: true });
+  });
+
+  it('is a no-op off Android', async () => {
+    setPlatform('ios');
+    await ensureDefaultChannel();
+    expect(setNotificationChannelAsync).not.toHaveBeenCalled();
+  });
+
+  it('swallows a setNotificationChannelAsync rejection without throwing', async () => {
+    setPlatform('android');
+    (setNotificationChannelAsync as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+    await expect(ensureDefaultChannel()).resolves.toBeUndefined();
+  });
+});
 
 describe('permission + token', () => {
   it('requestPushPermission true for AUTHORIZED', async () => {

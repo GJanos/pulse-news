@@ -9,13 +9,49 @@ import {
   getInitialNotification,
   AuthorizationStatus,
 } from '@react-native-firebase/messaging';
-import { setBadgeCountAsync } from 'expo-notifications';
+import {
+  setBadgeCountAsync,
+  setNotificationChannelAsync,
+  AndroidImportance,
+} from 'expo-notifications';
+import { Platform } from 'react-native';
 
 import { DAILY_DIGEST_TYPE } from './keys';
 import { getLogger } from '../logger';
 
 const fcm = getMessaging();
 const log = getLogger('fcm');
+
+/**
+ * Android channel id the cron's pushes target (`android.notification.channelId`
+ * in cron/src/notify.ts). Must match exactly or Android 8+ drops the push onto
+ * a silent fallback channel.
+ */
+export const DEFAULT_CHANNEL_ID = 'default';
+
+/**
+ * Create the Android notification channel the daily-digest pushes target. The
+ * cron sends `channelId: 'default'`; without a matching channel Android 8+ posts
+ * the notification to an auto-created low-importance fallback (no heads-up, no
+ * sound), which is the leading cause of "missed" digests. HIGH importance + sound
+ * restores the heads-up banner and alert. No-op off Android; idempotent — safe to
+ * call on every launch (re-creating an existing channel is a cheap merge).
+ */
+export async function ensureDefaultChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    await setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
+      name: 'Daily digest',
+      importance: AndroidImportance.HIGH,
+      sound: 'default',
+      enableVibrate: true,
+      vibrationPattern: [0, 250, 250, 250],
+    });
+    log.debug('default notification channel ensured');
+  } catch (e: unknown) {
+    log.warn(`ensureDefaultChannel failed: ${String(e)}`);
+  }
+}
 
 function isGranted(status: number): boolean {
   return status === AuthorizationStatus.AUTHORIZED || status === AuthorizationStatus.PROVISIONAL;

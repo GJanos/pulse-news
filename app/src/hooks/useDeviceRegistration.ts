@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import { useAppStore } from '../store';
 import { config } from '../config';
 import { registerForPushNotifications, listenForTokenRefresh } from '../notifications/register';
-import { getNotificationPermission } from '../notifications/fcm';
+import { getNotificationPermission, ensureDefaultChannel } from '../notifications/fcm';
 import { linkDeviceToUser, updateNotifyTime } from '../notifications/devices';
 import { getLogger } from '../logger';
 
@@ -26,6 +26,10 @@ export function useDeviceRegistration(): void {
       useAppStore.getState();
 
     log.info('starting device registration');
+    // Create the Android channel the cron's pushes target before any can arrive.
+    // Independent of permission/token — channel creation needs neither and must
+    // happen even if registration later aborts.
+    void ensureDefaultChannel();
     const timer = setTimeout(() => {
       if (!cancelled) {
         log.warn(
