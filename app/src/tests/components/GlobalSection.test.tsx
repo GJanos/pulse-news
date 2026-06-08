@@ -62,6 +62,36 @@ describe('GlobalSection hero image', () => {
   });
 });
 
+describe('GlobalSection hero source', () => {
+  it('renders the #1 source as a pill on the hero', () => {
+    const h1 = { ...gh(1, 'https://img.example.com/1.jpg'), sourceName: 'Hero Source' };
+    const { getByTestId, getByText } = render(
+      <GlobalSection headlines={[h1, gh(2)]} onOpenArticle={jest.fn()} />,
+    );
+    expect(getByTestId('global-hero-source')).toBeTruthy();
+    expect(getByText('Hero Source')).toBeTruthy();
+  });
+
+  it('shows the #1 source exactly once (not duplicated below the hero)', () => {
+    const h1 = { ...gh(1, 'https://img.example.com/1.jpg'), sourceName: 'Hero Source' };
+    const h2 = { ...gh(2), sourceName: 'Other Source' };
+    const { queryAllByText } = render(
+      <GlobalSection headlines={[h1, h2]} onOpenArticle={jest.fn()} />,
+    );
+    expect(queryAllByText('Hero Source')).toHaveLength(1);
+    expect(queryAllByText('Other Source')).toHaveLength(1);
+  });
+
+  it('keeps the #1 source in the row when the hero is not shown', () => {
+    setPrefs(false); // images disabled → no hero
+    const h1 = { ...gh(1, 'https://img.example.com/1.jpg'), sourceName: 'Hero Source' };
+    const { getByText } = render(
+      <GlobalSection headlines={[h1, gh(2)]} onOpenArticle={jest.fn()} />,
+    );
+    expect(getByText('Hero Source')).toBeTruthy();
+  });
+});
+
 describe('GlobalSection onOpenArticle', () => {
   it('forwards imageUrl on the headline so the article hero can render', () => {
     const onOpenArticle = jest.fn();
