@@ -1,4 +1,10 @@
-import { parseOgImage, MIN_IMAGE_WIDTH } from '../lib/ogImage';
+import {
+  parseOgImage,
+  deduplicateOgImages,
+  MIN_IMAGE_WIDTH,
+  MIN_ASPECT_RATIO,
+} from '../lib/ogImage';
+import type { OgImageResult } from '../lib/ogImage';
 
 const PAGE = 'https://news.example.com/world/article-123';
 
@@ -87,5 +93,94 @@ describe('parseOgImage', () => {
   it('returns none for malformed / empty HTML', () => {
     expect(parseOgImage('', PAGE)).toEqual({ imageUrl: null, source: 'none' });
     expect(parseOgImage('<<not really html', PAGE)).toEqual({ imageUrl: null, source: 'none' });
+  });
+
+  it('drops a square image when both dimensions are declared', () => {
+    const side = MIN_IMAGE_WIDTH;
+    const html = `<html><head>
+      <meta property="og:image" content="https://cdn.example.com/logo.jpg">
+      <meta property="og:image:width" content="${side}">
+      <meta property="og:image:height" content="${side}">
+    </head></html>`;
+    expect(parseOgImage(html, PAGE)).toEqual({ imageUrl: null, source: 'none' });
+  });
+
+  it('drops a portrait image when both dimensions are declared', () => {
+    const html = `<html><head>
+      <meta property="og:image" content="https://cdn.example.com/portrait.jpg">
+      <meta property="og:image:width" content="630">
+      <meta property="og:image:height" content="1200">
+    </head></html>`;
+    expect(parseOgImage(html, PAGE)).toEqual({ imageUrl: null, source: 'none' });
+  });
+
+  it(`keeps an image just above MIN_ASPECT_RATIO (${MIN_ASPECT_RATIO})`, () => {
+    const html = `<html><head>
+      <meta property="og:image" content="https://cdn.example.com/wide.jpg">
+      <meta property="og:image:width" content="1200">
+      <meta property="og:image:height" content="800">
+    </head></html>`;
+    expect(parseOgImage(html, PAGE).imageUrl).toBe('https://cdn.example.com/wide.jpg');
+  });
+
+  it('keeps an image with no declared dimensions despite square-looking URL', () => {
+    const html = `<html><head>
+      <meta property="og:image" content="https://cdn.example.com/square-logo.jpg">
+    </head></html>`;
+    expect(parseOgImage(html, PAGE).imageUrl).toBe('https://cdn.example.com/square-logo.jpg');
+  });
+});
+
+describe('deduplicateOgImages', () => {
+  const ok = (url: string): OgImageResult => ({
+    imageUrl: url,
+    source: 'og',
+    width: 1200,
+    height: 630,
+  });
+  const fetchNone: OgImageResult = { imageUrl: null, source: 'none' };
+  const deduped: OgImageResult = { imageUrl: null, source: 'deduped' };
+
+  it('returns a single-item array unchanged', () => {
+    expect(deduplicateOgImages([ok('https://cdn.example.com/a.jpg')])).toEqual([
+      ok('https://cdn.example.com/a.jpg'),
+    ]);
+  });
+
+  it('preserves unique imageUrls across a batch', () => {
+    const results = [ok('https://cdn.example.com/a.jpg'), ok('https://cdn.example.com/b.jpg')];
+    expect(deduplicateOgImages(results)).toEqual(results);
+  });
+
+  it('marks duplicate imageUrls as deduped (distinct from fetch-time none)', () => {
+    const dup = 'https://npr.org/assets/img/logo.jpg';
+    const results = [ok(dup), ok('https://cdn.example.com/b.jpg'), ok(dup)];
+    const out = deduplicateOgImages(results);
+    expect(out[0]).toEqual(deduped);
+    expect(out[1]).toEqual(ok('https://cdn.example.com/b.jpg'));
+    expect(out[2]).toEqual(deduped);
+  });
+
+  it('does not treat fetch-time nulls as duplicates of each other', () => {
+    const results = [fetchNone, fetchNone, ok('https://cdn.example.com/a.jpg')];
+    const out = deduplicateOgImages(results);
+    expect(out[0]).toEqual(fetchNone);
+    expect(out[1]).toEqual(fetchNone);
+    expect(out[2]).toEqual(ok('https://cdn.example.com/a.jpg'));
+  });
+
+  it('marks only the duplicated entries as deduped, leaving unique ones intact', () => {
+    const dup = 'https://apnews.com/hub/logo.png';
+    const results = [
+      ok(dup),
+      ok('https://cdn.bbc.co.uk/real-photo.jpg'),
+      ok(dup),
+      ok('https://cdn.guardian.com/other-photo.jpg'),
+    ];
+    const out = deduplicateOgImages(results);
+    expect(out[0]).toEqual(deduped);
+    expect(out[1]).toEqual(ok('https://cdn.bbc.co.uk/real-photo.jpg'));
+    expect(out[2]).toEqual(deduped);
+    expect(out[3]).toEqual(ok('https://cdn.guardian.com/other-photo.jpg'));
   });
 });

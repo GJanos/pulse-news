@@ -7,6 +7,7 @@ import {
   usageSummary,
   retrySummary,
   runFetchPipeline,
+  deduplicateAcrossDigests,
 } from '../pipeline';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -189,5 +190,66 @@ describe('runFetchPipeline', () => {
   it('returns a non-negative totalDurationMs', async () => {
     const result = await runFetchPipeline(config, makeSource([makeDigest(), makeDigest()]));
     expect(result.totalDurationMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ── deduplicateAcrossDigests ──────────────────────────────────────────────────
+
+describe('deduplicateAcrossDigests', () => {
+  const h = (url: string, imageUrl?: string) => ({
+    title: 'T',
+    summary: 'S',
+    url,
+    ...(imageUrl ? { imageUrl } : {}),
+  });
+
+  it('returns digests unchanged when all imageUrls are unique across regions', () => {
+    const digests = [
+      makeDigest({ region: 'Hungary', headlines: [h('a', 'https://cdn.example.com/a.jpg')] }),
+      makeDigest({ region: 'UK', headlines: [h('b', 'https://cdn.example.com/b.jpg')] }),
+    ];
+    const result = deduplicateAcrossDigests(digests);
+    expect(result[0]?.headlines[0]?.imageUrl).toBe('https://cdn.example.com/a.jpg');
+    expect(result[1]?.headlines[0]?.imageUrl).toBe('https://cdn.example.com/b.jpg');
+  });
+
+  it('nulls an imageUrl that appears in two different regions', () => {
+    const logo = 'https://apnews.com/hub/logo.png';
+    const digests = [
+      makeDigest({ region: 'Hungary', headlines: [h('a', logo)] }),
+      makeDigest({ region: 'US', headlines: [h('b', logo)] }),
+    ];
+    const result = deduplicateAcrossDigests(digests);
+    expect(result[0]?.headlines[0]?.imageUrl).toBeUndefined();
+    expect(result[1]?.headlines[0]?.imageUrl).toBeUndefined();
+  });
+
+  it('preserves headlines that have no imageUrl', () => {
+    const digests = [
+      makeDigest({ region: 'Hungary', headlines: [h('a')] }),
+      makeDigest({ region: 'US', headlines: [h('b')] }),
+    ];
+    const result = deduplicateAcrossDigests(digests);
+    expect(result[0]?.headlines[0]?.imageUrl).toBeUndefined();
+    expect(result[1]?.headlines[0]?.imageUrl).toBeUndefined();
+  });
+
+  it('only nulls cross-region duplicates, leaves unique imageUrls intact', () => {
+    const logo = 'https://reuters.com/logo.png';
+    const digests = [
+      makeDigest({
+        region: 'UK',
+        headlines: [h('a', logo), h('b', 'https://cdn.bbc.co.uk/photo.jpg')],
+      }),
+      makeDigest({
+        region: 'US',
+        headlines: [h('c', logo), h('d', 'https://cdn.nyt.com/photo.jpg')],
+      }),
+    ];
+    const result = deduplicateAcrossDigests(digests);
+    expect(result[0]?.headlines[0]?.imageUrl).toBeUndefined();
+    expect(result[0]?.headlines[1]?.imageUrl).toBe('https://cdn.bbc.co.uk/photo.jpg');
+    expect(result[1]?.headlines[0]?.imageUrl).toBeUndefined();
+    expect(result[1]?.headlines[1]?.imageUrl).toBe('https://cdn.nyt.com/photo.jpg');
   });
 });

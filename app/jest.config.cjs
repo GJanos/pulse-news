@@ -18,6 +18,7 @@ module.exports = {
   moduleNameMapper: {
     '^@shared/(.*)$': '<rootDir>/../shared/src/$1',
     '^react-native$': '<rootDir>/__mocks__/react-native.ts',
+    '^expo-image$': '<rootDir>/__mocks__/expo-image.tsx',
     '^react-native-mmkv$': '<rootDir>/__mocks__/react-native-mmkv.ts',
     '^@supabase/supabase-js$': '<rootDir>/__mocks__/@supabase/supabase-js.ts',
     '^react-native-reanimated$': '<rootDir>/__mocks__/react-native-reanimated.ts',

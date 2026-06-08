@@ -190,10 +190,7 @@ export default function SettingsScreen({
             label="Count"
             sub="Number of global headlines shown."
             value={
-              <View
-                pointerEvents={prefs.showGlobalHeadlines ? 'auto' : 'none'}
-                style={{ opacity: prefs.showGlobalHeadlines ? 1 : 0.35 }}
-              >
+              <Gated enabled={prefs.showGlobalHeadlines}>
                 <Stepper
                   theme={theme}
                   aes={aes}
@@ -203,7 +200,7 @@ export default function SettingsScreen({
                   icons
                   onChange={(v) => setPref('globalHeadlineCount', v)}
                 />
-              </View>
+              </Gated>
             }
           />
         </Group>
@@ -243,6 +240,43 @@ export default function SettingsScreen({
                 ]}
                 onChange={(v) => setPref('openLinksIn', v)}
               />
+            }
+          />
+        </Group>
+
+        <Group theme={theme} aes={aes} label="Images">
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Show photos"
+            sub="Lead + thumbnail on the top stories per region."
+            value={
+              <Switch
+                value={prefs.imagesEnabled}
+                onValueChange={(v) => setPref('imagesEnabled', v)}
+                trackColor={{ false: theme.chip, true: theme.accent }}
+                thumbColor={theme.bg}
+                accessibilityLabel="Show photos"
+              />
+            }
+          />
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Photos per region"
+            sub="Max stories per region that show a photo. 1 = lead only."
+            value={
+              <Gated enabled={prefs.imagesEnabled}>
+                <Stepper
+                  theme={theme}
+                  aes={aes}
+                  value={prefs.photoCount}
+                  min={1}
+                  max={3}
+                  icons
+                  onChange={(v) => setPref('photoCount', v)}
+                />
+              </Gated>
             }
           />
         </Group>
@@ -390,6 +424,22 @@ export default function SettingsScreen({
           </Text>
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+// ── Gated ─────────────────────────────────────────────────────────────────────
+
+function Gated({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <View pointerEvents={enabled ? 'auto' : 'none'} style={{ opacity: enabled ? 1 : 0.35 }}>
+      {children}
     </View>
   );
 }

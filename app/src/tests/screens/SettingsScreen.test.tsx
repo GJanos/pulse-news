@@ -14,6 +14,8 @@ jest.mock('../../storage/preferences', () => ({
     notifyTime: '07:30',
     openLinksIn: 'in-app',
     regionStyle: 'flag',
+    imagesEnabled: true,
+    photoCount: 2,
     baseCurrency: 'USD',
     showCurrencyRates: false,
     showGlobalHeadlines: true,
@@ -118,5 +120,18 @@ describe('SettingsScreen', () => {
     useAppStore.setState({ notificationsEnabled: true });
     const { queryByText } = renderSettings();
     expect(queryByText('Notifications disabled')).toBeNull();
+  });
+
+  it('shows the Images group with the photo-count stepper when images are enabled', () => {
+    const { getByText } = renderSettings();
+    expect(getByText('Show photos')).toBeTruthy();
+    expect(getByText('Photos per region')).toBeTruthy();
+  });
+
+  it('keeps the photo-count row mounted (dimmed) when images are turned off', () => {
+    const { getByLabelText, queryByText } = renderSettings();
+    expect(queryByText('Photos per region')).toBeTruthy();
+    fireEvent(getByLabelText('Show photos'), 'valueChange', false);
+    expect(queryByText('Photos per region')).toBeTruthy();
   });
 });

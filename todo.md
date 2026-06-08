@@ -3,8 +3,10 @@
 ## V1
 
 - swiping motings are too sensitive they should only fire when user swipes not in the middle but towards to the sides at least
+  - Out of scope (later slices): article-reader hero image, global
+    "Top News" images, server-side image caching/proxying.
 
-- i need images in the digest page, to increase user retention
+- [ ] refactor costs logging in cron. Have normal log lines like before, but they also need to be refactored, but the main thing is I would love for a run to create a large json object of the data being logged in a format that is transmittable via http, but we kind of already have that, just it needs improvements
 
 # bugs
 
@@ -33,6 +35,10 @@ LOG 2026-06-06T09:09:45.951Z INFO (useGlobalHeadlines) fetching global headlines
 LOG 2026-06-06T09:09:45.952Z INFO (digests) loading global headlines for 2026-06-04
 LOG VirtualizedList: You have a large list that is slow to update - make sure your renderItem function renders components that follow React performance best practices like PureComponent, shouldComponentUpdate, etc. {"contentLength": 12446.857421875, "dt": 780, "prevDt": 132991}
 
+### Bugs
+
+- [ ] Notifications are often missed due to Android issues
+
 ### Deployment
 
 - [ ] **Set `EXPO_PUBLIC_API_URL`** — once Vercel is deployed, add the deployment URL to `app/.env` so `POST /api/account` (server-side device registration) becomes available
@@ -49,21 +55,6 @@ LOG VirtualizedList: You have a large list that is slow to update - make sure yo
     - `GET /api/daily-digest` — fetch + persist + FCM to null-notify_at devices; schedule `0 5 * * *`
     - `GET /api/notify` — FCM to devices in current 30-min window; schedule `*/30 * * * *`
   - `cron/index.ts` remains the local test runner (sends to all devices, no time filtering)
-
-### Bugs
-
-- [ ] Notifications are often missed due to Android issues
-
-### UI & Polish
-
-- [ ] Lock vertical screen orientation while using the app
-
-### Behaviour
-
-- [ ] Android swipe navigation should be disabled because it interferes with app gestures
-  - When an article is opened in the browser or via the "Open Article" button, enable left-swipe back navigation again
-
-- [ ] refactor costs logging in cron. Have normal log lines like before, but they also need to be refactored, but the main thing is I would love for a run to create a large json object of the data being logged in a format that is transmittable via http, but we kind of already have that, just it needs improvements
 
 ### Deferred / Research
 
@@ -102,26 +93,26 @@ Allowed — but you need a lawful basis. For product analytics (which articles g
 
 ---
 
-## Extra Features (I need your opinion on whether to implement these or not)
-
-- [ ] When clicking currency display data, show a small weekly chart
-
-  > Nice-to-have. Treat as secondary polish after the main digest/notification flow is stable. Implement only if currency data is already available and chart doesn't clutter the screen.
-
 ---
 
 ## V2
 
-- [ ] **React Navigation migration** — the rebuild uses manual conditional rendering (keeps settings overlay + DigestPager gesture model intact). Post-parity, evaluate migrating to React Navigation for lazy screen mounting and standard back-gesture handling. Caveats: DigestPager's RNGH pan gesture needs `simultaneousHandlers` config to avoid conflicts with a stack navigator's swipe-back; the settings overlay (both screens mounted at once) becomes either a modal or a custom `CardStyleInterpolator`. Only worth it if deep navigation stacks appear (V2 features).
-
 - [ ] **Sources filtering**
+
 - [ ] **Topic filtering** — user selects preferred/suppressed categories (economy, politics, sports…)
+
 - [ ] **Pulse weekly** — clickable grey down-pointing caret next to "Pulse Daily"; dropdown for daily/weekly/monthly digest
   - Daily: ready; weekly = same call with `recency: week`; monthly = `recency: month`
+
 - [ ] **iOS push notifications** — FCM needs an APNs key from Apple Developer account uploaded to Firebase (Project Settings → Cloud Messaging → Apple app config → APNs Authentication Key). Requires paid Apple Developer account ($99/yr). Defer until ready to test on a real iOS device.
+
 - [ ] **Language / translation** — setting for returned article language; default English (no translation)
   - Cron side: translate the full digest after fetching, store alongside original in Supabase with a `lang` column on the `digests` table
   - Use DeepL (not Claude, not Mistral) — purpose-built for translation, free up to 500k chars/month, better quality than an LLM for most language pairs
+
+- [ ] When clicking currency display data, show a small weekly chart
+
+  > Nice-to-have. Treat as secondary polish after the main digest/notification flow is stable. Implement only if currency data is already available and chart doesn't clutter the screen.
 
 ---
 

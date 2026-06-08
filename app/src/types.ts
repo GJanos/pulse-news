@@ -10,6 +10,8 @@ export interface Headline {
   url: string;
   category?: string;
   sourceName?: string;
+  /** og:image matched by cron; absent on old cached digests. */
+  imageUrl?: string;
 }
 
 export interface RegionDigestPayload {
@@ -29,6 +31,8 @@ export interface GlobalHeadline {
   /** The source region name (e.g. "Hungary"). */
   region: string;
   sourceName?: string;
+  /** og:image matched by cron; forward-compat (not rendered this slice). */
+  imageUrl?: string;
 }
 
 export interface GlobalDigestPayload {
@@ -57,6 +61,10 @@ export interface UserPreferences {
   notifyTime: string;
   openLinksIn: 'in-app' | 'browser';
   regionStyle: 'flag' | 'code';
+  /** Master switch for digest photos. */
+  imagesEnabled: boolean;
+  /** Max stories per region that show a photo (1 = lead only). Range 1–3. */
+  photoCount: number;
   baseCurrency: string;
   showCurrencyRates: boolean;
   showGlobalHeadlines: boolean;
