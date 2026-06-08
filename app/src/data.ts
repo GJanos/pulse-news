@@ -1,4 +1,4 @@
-import { REGIONS, type Region } from '@shared/regions';
+import { REGIONS, type Region } from '@pulse/shared/regions';
 export { REGIONS };
 
 /** Returns selected regions in the user's persisted selection order. */

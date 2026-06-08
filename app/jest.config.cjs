@@ -16,7 +16,8 @@ module.exports = {
   passWithNoTests: true,
   setupFiles: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
-    '^@shared/(.*)$': '<rootDir>/../shared/src/$1',
+    '^@pulse/shared/pulse.config.json$': '<rootDir>/../shared/pulse.config.json',
+    '^@pulse/shared/(.*)$': '<rootDir>/../shared/src/$1',
     '^react-native$': '<rootDir>/__mocks__/react-native.ts',
     '^expo-image$': '<rootDir>/__mocks__/expo-image.tsx',
     '^react-native-mmkv$': '<rootDir>/__mocks__/react-native-mmkv.ts',

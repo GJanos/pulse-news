@@ -1,4 +1,4 @@
-import rawConfig from '../../shared/pulse.config.json';
+import rawConfig from '@pulse/shared/pulse.config.json';
 
 export const config = rawConfig.app as unknown as {
   screenStateTtlMs: number;

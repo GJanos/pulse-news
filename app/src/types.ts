@@ -1,4 +1,4 @@
-import type { ContinentName, Region } from '@shared/regions';
+import type { ContinentName, Region } from '@pulse/shared/regions';
 
 export type { ContinentName, Region };
 
