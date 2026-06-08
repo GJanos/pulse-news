@@ -17,6 +17,9 @@ import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes'
 import { isoDateAtDayIndex, formatLongDate } from '../data';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
+import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+
+const AnimatedPager = Animated.createAnimatedComponent(GHScrollView);
 
 /** Fallback day-page top padding before the bar reports its real height. */
 const HEADER_HEIGHT_ESTIMATE = 56;
@@ -257,7 +260,7 @@ export default React.memo(function DigestPager({
   const { getSlotSetter, setActivePage } = usePageRefs<DigestPageHandle>(activePageRef);
   useDigestRefreshOnNonce(activePageRef);
 
-  const scrollRef = useRef<Animated.ScrollView>(null);
+  const scrollRef = useRef<GHScrollView>(null);
   // Page the strip is currently settled on. Initialised from the first-render
   // store state so the position-sync effect is a no-op on mount.
   const initialPage = useRef(
@@ -322,7 +325,7 @@ export default React.memo(function DigestPager({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <Animated.ScrollView
+      <AnimatedPager
         ref={scrollRef}
         horizontal
         pagingEnabled
@@ -371,7 +374,7 @@ export default React.memo(function DigestPager({
         <View key="settings" style={{ width: W }}>
           <ErrorBoundary>{settingsSlot}</ErrorBoundary>
         </View>
-      </Animated.ScrollView>
+      </AnimatedPager>
 
       <PinnedHeaderBar
         scrollX={scrollX}
