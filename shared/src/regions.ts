@@ -62,8 +62,8 @@ export const REGIONS: Region[] = [
     sources: [
       'BBC News (bbc.co.uk/news)',
       'The Guardian (theguardian.com)',
-      'i (inews.co.uk)',
-      'The Independent (independent.co.uk)',
+      'Sky News (news.sky.com)',
+      'ITV News (itv.com/news)',
     ],
   },
   {
@@ -74,7 +74,7 @@ export const REGIONS: Region[] = [
     currency: 'ILS',
     sources: [
       'Jerusalem Post (jpost.com)',
-      'Haaretz (haaretz.com)',
+      'i24NEWS (i24news.tv)',
       'Times of Israel (timesofisrael.com)',
       'Ynet News (ynetnews.com)',
     ],
@@ -99,7 +99,7 @@ export const REGIONS: Region[] = [
     currency: 'CNY',
     sources: [
       'South China Morning Post (scmp.com)',
-      'Caixin Global (caixinglobal.com)',
+      'Sixth Tone (sixthtone.com)',
       'The Diplomat (thediplomat.com)',
     ],
   },

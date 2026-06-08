@@ -181,7 +181,7 @@ export default function ArticleScreen({
               uri={headline.imageUrl}
               testID="hero-image"
               aspectRatio={16 / 9}
-              style={{ width: W, marginHorizontal: -22, marginTop: -22 }}
+              style={{ width: W, marginHorizontal: -22, marginTop: -22, marginBottom: 20 }}
             />
           ) : null}
           <Text
