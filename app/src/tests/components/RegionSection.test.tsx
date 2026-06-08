@@ -100,10 +100,12 @@ describe('RegionSection image treatment', () => {
     expect(queryAllByTestId('thumb-image')).toHaveLength(2);
   });
 
-  it('renders the sourceName exactly once on a lead story (pill overlay, not foot)', () => {
-    // Regression: HeadlineFoot previously rendered sourceName unconditionally; the lead card
-    // also shows it in the leadPill overlay — hideSource prevents the double render.
-    const { getAllByText } = renderSection([hWithSource(1, 'AP News'), h(2, false)]);
+  it('renders the lead foot uniform with normal rows: source once + category', () => {
+    // The lead card shows the source in the foot (bottom-left) alongside the category
+    // (bottom-right), exactly like thumb/text rows — not as a pill overlaid on the image.
+    const lead: Headline = { ...hWithSource(1, 'AP News'), category: 'Politics' };
+    const { getAllByText, getByText } = renderSection([lead, h(2, false)]);
     expect(getAllByText('AP News')).toHaveLength(1);
+    expect(getByText('Politics')).toBeTruthy();
   });
 });
