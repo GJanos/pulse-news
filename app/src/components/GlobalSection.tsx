@@ -88,6 +88,7 @@ function GlobalSectionImpl({ headlines, onOpenArticle }: GlobalSectionProps): Re
           detail: h.detail,
           url: h.url,
           sourceName: h.sourceName,
+          imageUrl: h.imageUrl,
         };
         return (
           <PressableScale
