@@ -7,8 +7,10 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "types": ["node", "jest"],
+    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../shared/src/*"]
+      "@pulse/shared/pulse.config.json": ["../shared/pulse.config.json"],
+      "@pulse/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["index.ts", "App.tsx", "src/**/*", "__mocks__/**/*"],
