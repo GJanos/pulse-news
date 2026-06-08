@@ -22,15 +22,12 @@ function HeadlineFoot({
   h,
   theme,
   aes,
-  hideSource = false,
 }: {
   h: Headline;
   theme: Theme;
   aes: Aesthetic;
-  /** Suppress the sourceName row — used in lead cards where sourceName already appears as a pill overlay on the image. */
-  hideSource?: boolean;
 }): React.ReactElement | null {
-  const showSource = !hideSource && !!h.sourceName;
+  const showSource = !!h.sourceName;
   if (!showSource && !h.category) return null;
   return (
     <View style={s.headlineFoot}>
@@ -73,14 +70,12 @@ function RegionSectionImpl({
 }: RegionSectionProps): React.ReactElement {
   const theme = useAppStore((st) => THEMES[st.prefs.theme]);
   const aes = useAppStore((st) => AESTHETICS[st.prefs.aesthetic]);
-  const themeId = useAppStore((st) => st.prefs.theme);
   const baseCurrency = useAppStore((st) => st.prefs.baseCurrency);
   const regionStyle = useAppStore((st) => st.prefs.regionStyle);
   const imagesEnabled = useAppStore((st) => st.prefs.imagesEnabled);
   const photoCount = useAppStore((st) => st.prefs.photoCount);
   const showFlags = regionStyle !== 'code';
   const imagesOn = imagesEnabled !== false;
-  const pillBg = themeId === 'dark' ? 'rgba(17,17,16,0.62)' : 'rgba(255,255,255,0.64)';
 
   const numberStyle = useMemo(
     () => ({
@@ -198,30 +193,13 @@ function RegionSectionImpl({
               activeScale={0.94}
               style={[s.leadRow, borderStyle]}
             >
-              <View style={s.leadImageWrap}>
-                <HeadlineImage
-                  uri={h.imageUrl!}
-                  aspectRatio={3 / 2}
-                  radius={0}
-                  recyclingKey={h.url}
-                  testID="lead-image"
-                />
-                {h.sourceName ? (
-                  <View style={[s.leadPill, { backgroundColor: pillBg }]}>
-                    <Text
-                      style={{
-                        fontFamily: font(aes, 'eyebrow', 500),
-                        fontSize: 8.5,
-                        letterSpacing: 1.2,
-                        textTransform: 'uppercase',
-                        color: theme.textDim,
-                      }}
-                    >
-                      {h.sourceName}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+              <HeadlineImage
+                uri={h.imageUrl!}
+                aspectRatio={3 / 2}
+                radius={0}
+                recyclingKey={h.url}
+                testID="lead-image"
+              />
               <View style={s.leadBody}>
                 <View style={s.numberCol}>
                   <Text style={numberStyle}>{i + 1}</Text>
@@ -239,7 +217,7 @@ function RegionSectionImpl({
                     {h.title}
                   </Text>
                   <Text style={summaryStyle}>{h.summary}</Text>
-                  <HeadlineFoot h={h} theme={theme} aes={aes} hideSource />
+                  <HeadlineFoot h={h} theme={theme} aes={aes} />
                 </View>
               </View>
             </PressableScale>
@@ -315,15 +293,6 @@ const s = StyleSheet.create({
   },
   headlineRow: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 18 },
   leadRow: { paddingBottom: 18 },
-  leadImageWrap: { position: 'relative', width: '100%' },
-  leadPill: {
-    position: 'absolute',
-    left: 10,
-    bottom: 9,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 5,
-  },
   leadBody: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 14 },
   numberCol: { width: 32, paddingTop: 2 },
   content: { flex: 1 },
