@@ -3,6 +3,7 @@ import { View, ScrollView } from 'react-native';
 const Reanimated = {
   View,
   ScrollView,
+  createAnimatedComponent: (c: unknown) => c,
   default: {
     View,
     ScrollView,

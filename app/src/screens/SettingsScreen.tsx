@@ -264,7 +264,7 @@ export default function SettingsScreen({
             theme={theme}
             aes={aes}
             label="Photos per region"
-            sub="Max stories per region that show a photo. 1 = lead only."
+            sub={'Max stories per region that show a photo.\n1 = lead only.'}
             value={
               <Gated enabled={prefs.imagesEnabled}>
                 <Stepper

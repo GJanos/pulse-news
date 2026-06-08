@@ -16,6 +16,7 @@ import { font, THEMES, AESTHETICS } from '../themes';
 import { useAppStore } from '../store';
 import PulseIcon from '../components/Icon';
 import Flag from '../components/Flag';
+import { HeadlineImage } from '../components/HeadlineImage';
 import { resolveArticleSwipe } from '../utils/swipe';
 import { setEdgeExclusion } from '../../modules/gesture-exclusion';
 import type { Headline, Region } from '../types';
@@ -34,6 +35,7 @@ export default function ArticleScreen({
   const theme = useAppStore((s) => THEMES[s.prefs.theme]);
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
   const setReaderUrl = useAppStore((s) => s.setReaderUrl);
+  const imagesEnabled = useAppStore((s) => s.prefs.imagesEnabled);
   const insets = useSafeAreaInsets();
   const { width: W } = useWindowDimensions();
   const [copied, setCopied] = useState(false);
@@ -79,7 +81,7 @@ export default function ArticleScreen({
     () =>
       Gesture.Pan()
         .activeOffsetX([-15, 15])
-        .failOffsetY([-20, 20])
+        .failOffsetY([-10, 10])
         .onUpdate((e) => {
           // Track the finger 1:1 in the close direction; clamp the open direction at 0.
           translateX.value = Math.max(0, e.translationX);
@@ -174,6 +176,14 @@ export default function ArticleScreen({
           contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
+          {imagesEnabled && headline.imageUrl ? (
+            <HeadlineImage
+              uri={headline.imageUrl}
+              testID="hero-image"
+              aspectRatio={16 / 9}
+              style={{ width: W, marginHorizontal: -22, marginTop: -22, marginBottom: 20 }}
+            />
+          ) : null}
           <Text
             style={{
               fontFamily: font(aes, 'title', 700),

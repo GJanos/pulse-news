@@ -101,7 +101,7 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
     () =>
       Gesture.Pan()
         .activeOffsetX([5, 999])
-        .failOffsetY([-20, 20])
+        .failOffsetY([-10, 10])
         .onUpdate((e) => {
           if (!canGoBackSV.value) {
             translateX.value = Math.max(0, e.translationX);

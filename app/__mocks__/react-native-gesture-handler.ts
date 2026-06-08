@@ -1,7 +1,8 @@
 import type React from 'react';
-import { View } from 'react-native';
+import { View, ScrollView as RNScrollView } from 'react-native';
 
 export const GestureHandlerRootView = View;
+export const ScrollView = RNScrollView;
 export const GestureDetector = ({ children }: { children: React.ReactNode }) => children;
 export const Gesture = {
   Pan: () => ({

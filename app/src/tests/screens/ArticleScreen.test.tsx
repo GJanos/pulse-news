@@ -97,4 +97,47 @@ describe('ArticleScreen', () => {
     );
     expect(queryByText('Deep dive text')).toBeTruthy();
   });
+
+  describe('hero image', () => {
+    const withImage = { ...headline, imageUrl: 'https://img.example.com/hero.jpg' };
+
+    it('renders hero image when imageUrl is set and imagesEnabled is true', () => {
+      useAppStore.setState({
+        prefs: {
+          ...DEFAULT_PREFERENCES,
+          theme: 'light',
+          aesthetic: 'editorial',
+          imagesEnabled: true,
+        },
+      });
+      const { getByTestId } = renderArticle(withImage);
+      expect(getByTestId('hero-image')).toBeTruthy();
+    });
+
+    it('does not render hero image when imagesEnabled is false', () => {
+      useAppStore.setState({
+        prefs: {
+          ...DEFAULT_PREFERENCES,
+          theme: 'light',
+          aesthetic: 'editorial',
+          imagesEnabled: false,
+        },
+      });
+      const { queryByTestId } = renderArticle(withImage);
+      expect(queryByTestId('hero-image')).toBeNull();
+    });
+
+    it('does not render hero image when imageUrl is absent', () => {
+      useAppStore.setState({
+        prefs: {
+          ...DEFAULT_PREFERENCES,
+          theme: 'light',
+          aesthetic: 'editorial',
+          imagesEnabled: true,
+        },
+      });
+      const { queryByTestId } = renderArticle(headline); // headline has no imageUrl
+      expect(queryByTestId('hero-image')).toBeNull();
+    });
+  });
 });

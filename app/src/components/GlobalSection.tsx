@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { PressableScale } from 'react-native-pressable-scale';
 import { THEMES, AESTHETICS, font } from '../themes';
 import PulseIcon from './Icon';
+import { HeadlineImage } from './HeadlineImage';
 import { REGIONS } from '../data';
 import { useAppStore } from '../store';
 import type { Headline, GlobalHeadline, Region } from '../types';
@@ -17,6 +18,7 @@ interface GlobalSectionProps {
 function GlobalSectionImpl({ headlines, onOpenArticle }: GlobalSectionProps): React.ReactElement {
   const theme = useAppStore((s) => THEMES[s.prefs.theme]);
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
+  const imagesEnabled = useAppStore((s) => s.prefs.imagesEnabled);
 
   return (
     <View style={s.container}>
@@ -62,6 +64,14 @@ function GlobalSectionImpl({ headlines, onOpenArticle }: GlobalSectionProps): Re
         </Text>
       </View>
 
+      {imagesEnabled && headlines[0]?.imageUrl ? (
+        <HeadlineImage
+          uri={headlines[0].imageUrl}
+          testID="global-hero-image"
+          aspectRatio={16 / 9}
+        />
+      ) : null}
+
       {headlines.map((h, i) => {
         const fallbackCode = h.region.slice(0, 2).toUpperCase();
         const region: Region = REGION_MAP.get(h.region) ?? {
@@ -78,6 +88,7 @@ function GlobalSectionImpl({ headlines, onOpenArticle }: GlobalSectionProps): Re
           detail: h.detail,
           url: h.url,
           sourceName: h.sourceName,
+          imageUrl: h.imageUrl,
         };
         return (
           <PressableScale
