@@ -21,6 +21,11 @@ const h = (n: number, withImage: boolean): Headline => ({
   ...(withImage ? { imageUrl: `https://img.example.com/${n}.jpg` } : {}),
 });
 
+const hWithSource = (n: number, sourceName: string): Headline => ({
+  ...h(n, true),
+  sourceName,
+});
+
 function setPrefs(over: Partial<UserPreferences>): void {
   useAppStore.setState({
     prefs: {
@@ -93,5 +98,12 @@ describe('RegionSection image treatment', () => {
     // No lead (story #1 has no image). Stories #3 and #4 fill the 2 photo slots as thumbs.
     expect(queryByTestId('lead-image')).toBeNull();
     expect(queryAllByTestId('thumb-image')).toHaveLength(2);
+  });
+
+  it('renders the sourceName exactly once on a lead story (pill overlay, not foot)', () => {
+    // Regression: HeadlineFoot previously rendered sourceName unconditionally; the lead card
+    // also shows it in the leadPill overlay — hideSource prevents the double render.
+    const { getAllByText } = renderSection([hWithSource(1, 'AP News'), h(2, false)]);
+    expect(getAllByText('AP News')).toHaveLength(1);
   });
 });

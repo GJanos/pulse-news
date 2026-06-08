@@ -190,10 +190,7 @@ export default function SettingsScreen({
             label="Count"
             sub="Number of global headlines shown."
             value={
-              <View
-                pointerEvents={prefs.showGlobalHeadlines ? 'auto' : 'none'}
-                style={{ opacity: prefs.showGlobalHeadlines ? 1 : 0.35 }}
-              >
+              <Gated enabled={prefs.showGlobalHeadlines}>
                 <Stepper
                   theme={theme}
                   aes={aes}
@@ -203,7 +200,7 @@ export default function SettingsScreen({
                   icons
                   onChange={(v) => setPref('globalHeadlineCount', v)}
                 />
-              </View>
+              </Gated>
             }
           />
         </Group>
@@ -269,10 +266,7 @@ export default function SettingsScreen({
             label="Photos per region"
             sub="Max stories per region that show a photo. 1 = lead only."
             value={
-              <View
-                pointerEvents={prefs.imagesEnabled ? 'auto' : 'none'}
-                style={{ opacity: prefs.imagesEnabled ? 1 : 0.35 }}
-              >
+              <Gated enabled={prefs.imagesEnabled}>
                 <Stepper
                   theme={theme}
                   aes={aes}
@@ -282,7 +276,7 @@ export default function SettingsScreen({
                   icons
                   onChange={(v) => setPref('photoCount', v)}
                 />
-              </View>
+              </Gated>
             }
           />
         </Group>
@@ -430,6 +424,22 @@ export default function SettingsScreen({
           </Text>
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+// ── Gated ─────────────────────────────────────────────────────────────────────
+
+function Gated({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <View pointerEvents={enabled ? 'auto' : 'none'} style={{ opacity: enabled ? 1 : 0.35 }}>
+      {children}
     </View>
   );
 }

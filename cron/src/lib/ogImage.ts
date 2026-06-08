@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 
-export type ImageSource = 'og' | 'twitter' | 'none';
+export type ImageSource = 'og' | 'twitter' | 'none' | 'deduped';
 
 export interface OgImageResult {
   imageUrl: string | null;
@@ -23,6 +23,10 @@ export const MIN_IMAGE_HEIGHT = 300;
 // Reject square and portrait images (ratio <= 1.0) when both dimensions are declared.
 // Publisher brand logos served as og:image defaults (e.g. NPR 1400×1400) are square;
 // real editorial news photos are always landscape.
+// Known limitation: the ratio check only fires when the publisher declares BOTH
+// og:image:width and og:image:height. An image with only width declared passes
+// through regardless of its actual ratio; deduplication provides complementary
+// defence for repeated URLs.
 export const MIN_ASPECT_RATIO = 1.0;
 
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -135,7 +139,7 @@ export function deduplicateOgImages(results: OgImageResult[]): OgImageResult[] {
   }
   return results.map((r) => {
     if (r.imageUrl && (urlCount.get(r.imageUrl) ?? 0) > 1) {
-      return { imageUrl: null, source: 'none' };
+      return { imageUrl: null, source: 'deduped' as const };
     }
     return r;
   });

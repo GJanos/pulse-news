@@ -138,7 +138,8 @@ describe('deduplicateOgImages', () => {
     width: 1200,
     height: 630,
   });
-  const none: OgImageResult = { imageUrl: null, source: 'none' };
+  const fetchNone: OgImageResult = { imageUrl: null, source: 'none' };
+  const deduped: OgImageResult = { imageUrl: null, source: 'deduped' };
 
   it('returns a single-item array unchanged', () => {
     expect(deduplicateOgImages([ok('https://cdn.example.com/a.jpg')])).toEqual([
@@ -151,24 +152,24 @@ describe('deduplicateOgImages', () => {
     expect(deduplicateOgImages(results)).toEqual(results);
   });
 
-  it('nulls duplicate imageUrls when the same URL appears 2+ times', () => {
+  it('marks duplicate imageUrls as deduped (distinct from fetch-time none)', () => {
     const dup = 'https://npr.org/assets/img/logo.jpg';
     const results = [ok(dup), ok('https://cdn.example.com/b.jpg'), ok(dup)];
     const out = deduplicateOgImages(results);
-    expect(out[0]).toEqual(none);
+    expect(out[0]).toEqual(deduped);
     expect(out[1]).toEqual(ok('https://cdn.example.com/b.jpg'));
-    expect(out[2]).toEqual(none);
+    expect(out[2]).toEqual(deduped);
   });
 
-  it('does not treat null imageUrls as duplicates of each other', () => {
-    const results = [none, none, ok('https://cdn.example.com/a.jpg')];
+  it('does not treat fetch-time nulls as duplicates of each other', () => {
+    const results = [fetchNone, fetchNone, ok('https://cdn.example.com/a.jpg')];
     const out = deduplicateOgImages(results);
-    expect(out[0]).toEqual(none);
-    expect(out[1]).toEqual(none);
+    expect(out[0]).toEqual(fetchNone);
+    expect(out[1]).toEqual(fetchNone);
     expect(out[2]).toEqual(ok('https://cdn.example.com/a.jpg'));
   });
 
-  it('nulls only the duplicated entries, leaving unique ones intact', () => {
+  it('marks only the duplicated entries as deduped, leaving unique ones intact', () => {
     const dup = 'https://apnews.com/hub/logo.png';
     const results = [
       ok(dup),
@@ -177,9 +178,9 @@ describe('deduplicateOgImages', () => {
       ok('https://cdn.guardian.com/other-photo.jpg'),
     ];
     const out = deduplicateOgImages(results);
-    expect(out[0]).toEqual(none);
+    expect(out[0]).toEqual(deduped);
     expect(out[1]).toEqual(ok('https://cdn.bbc.co.uk/real-photo.jpg'));
-    expect(out[2]).toEqual(none);
+    expect(out[2]).toEqual(deduped);
     expect(out[3]).toEqual(ok('https://cdn.guardian.com/other-photo.jpg'));
   });
 });

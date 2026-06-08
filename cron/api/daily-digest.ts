@@ -4,7 +4,12 @@ import { loadPulseConfig, createSource, checkCronSecret } from '../src/config';
 import { persistDigests, persistGlobalDigest, buildClient, dispatchFcm } from '../src/notify';
 import { rankGlobalHeadlines } from '../src/rankHeadlines';
 import { getLogger } from '../src/logging';
-import { buildRunLog, runFetchPipeline, writeRunLog } from '../src/pipeline';
+import {
+  buildRunLog,
+  deduplicateAcrossDigests,
+  runFetchPipeline,
+  writeRunLog,
+} from '../src/pipeline';
 
 /**
  * Vercel cron handler — fetch all region digests, persist to DB, then push
@@ -23,7 +28,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const source = createSource(config);
 
   try {
-    const { resolvedRegions, digests, errors } = await runFetchPipeline(config, source);
+    const {
+      resolvedRegions,
+      digests: fetchedDigests,
+      errors,
+    } = await runFetchPipeline(config, source);
+    const digests = deduplicateAcrossDigests(fetchedDigests);
     errors.forEach((error) =>
       log.error(`Region fetch failed: ${error.region}: ${String(error.reason)}`),
     );

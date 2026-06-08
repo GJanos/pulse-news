@@ -108,3 +108,25 @@ export function writeRunLog(log: RunLog, resolvedRegions: RegionConfig[]): strin
   appendRunLog(log, logPath);
   return logPath;
 }
+
+/**
+ * Nulls out imageUrls that appear in more than one region's headlines.
+ * Per-region deduplication (in fetchOgImages) handles same-URL repetition
+ * within a single region; this step catches publisher default images that
+ * survived per-region dedup by appearing exactly once in each of several
+ * regions' batches.
+ */
+export function deduplicateAcrossDigests(digests: RegionDigest[]): RegionDigest[] {
+  const urlCount = new Map<string, number>();
+  for (const d of digests) {
+    for (const h of d.headlines) {
+      if (h.imageUrl) urlCount.set(h.imageUrl, (urlCount.get(h.imageUrl) ?? 0) + 1);
+    }
+  }
+  return digests.map((d) => ({
+    ...d,
+    headlines: d.headlines.map((h) =>
+      h.imageUrl && (urlCount.get(h.imageUrl) ?? 0) > 1 ? { ...h, imageUrl: undefined } : h,
+    ),
+  }));
+}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { PressableScale } from 'react-native-pressable-scale';
 import { THEMES, AESTHETICS, font } from '../themes';
@@ -22,15 +22,19 @@ function HeadlineFoot({
   h,
   theme,
   aes,
+  hideSource = false,
 }: {
   h: Headline;
   theme: Theme;
   aes: Aesthetic;
+  /** Suppress the sourceName row — used in lead cards where sourceName already appears as a pill overlay on the image. */
+  hideSource?: boolean;
 }): React.ReactElement | null {
-  if (!h.sourceName && !h.category) return null;
+  const showSource = !hideSource && !!h.sourceName;
+  if (!showSource && !h.category) return null;
   return (
     <View style={s.headlineFoot}>
-      {h.sourceName ? (
+      {showSource ? (
         <View style={s.sourceRow}>
           <Text
             style={{
@@ -78,33 +82,43 @@ function RegionSectionImpl({
   const imagesOn = imagesEnabled !== false;
   const pillBg = themeId === 'dark' ? 'rgba(17,17,16,0.62)' : 'rgba(255,255,255,0.64)';
 
-  const numberStyle = {
-    fontFamily: font(aes, 'number', 500),
-    fontSize: aes.numberSize,
-    lineHeight: 16,
-    color: theme.textFaint,
-    letterSpacing: 0.2,
-  };
-  const summaryStyle = {
-    fontFamily: font(aes, 'body'),
-    fontSize: aes.bodySize,
-    lineHeight: aes.bodyLh,
-    color: theme.textDim,
-    marginTop: 8,
-  };
+  const numberStyle = useMemo(
+    () => ({
+      fontFamily: font(aes, 'number', 500),
+      fontSize: aes.numberSize,
+      lineHeight: 16,
+      color: theme.textFaint,
+      letterSpacing: 0.2,
+    }),
+    [aes, theme.textFaint],
+  );
+  const summaryStyle = useMemo(
+    () => ({
+      fontFamily: font(aes, 'body'),
+      fontSize: aes.bodySize,
+      lineHeight: aes.bodyLh,
+      color: theme.textDim,
+      marginTop: 8,
+    }),
+    [aes, theme.textDim],
+  );
+  const borderStyles = useMemo(
+    () => ({
+      with: { borderBottomColor: theme.rule, borderBottomWidth: StyleSheet.hairlineWidth },
+      without: { borderBottomColor: theme.rule, borderBottomWidth: 0 },
+    }),
+    [theme.rule],
+  );
 
-  // Pre-compute which stories get image treatment. Uses count-based logic so later
-  // stories with images fill slots that earlier image-less stories leave empty.
-  const imageVariants: Array<'lead' | 'thumb' | 'text'> = bucket.items.map(() => 'text');
-  if (imagesOn) {
-    let slots = photoCount;
-    bucket.items.forEach((h, i) => {
-      if (slots > 0 && h.imageUrl) {
-        imageVariants[i] = i === 0 ? 'lead' : 'thumb';
-        slots--;
-      }
-    });
-  }
+  type Variant = 'lead' | 'thumb' | 'text';
+  let remainingSlots = imagesOn ? photoCount : 0;
+  const rows: Array<[Headline, Variant]> = bucket.items.map((h, i) => {
+    if (remainingSlots > 0 && h.imageUrl) {
+      remainingSlots--;
+      return [h, i === 0 ? 'lead' : 'thumb'];
+    }
+    return [h, 'text'];
+  });
 
   return (
     <View style={s.container}>
@@ -169,13 +183,9 @@ function RegionSectionImpl({
         )}
       </View>
 
-      {bucket.items.map((h, i) => {
-        const hasBorder = i < bucket.items.length - 1;
-        const borderStyle = {
-          borderBottomColor: theme.rule,
-          borderBottomWidth: hasBorder ? StyleSheet.hairlineWidth : 0,
-        };
-        const variant = imageVariants[i] ?? 'text';
+      {rows.map(([h, variant], i) => {
+        const hasBorder = i < rows.length - 1;
+        const borderStyle = hasBorder ? borderStyles.with : borderStyles.without;
         const isLead = variant === 'lead';
         const isThumb = variant === 'thumb';
 
@@ -229,7 +239,7 @@ function RegionSectionImpl({
                     {h.title}
                   </Text>
                   <Text style={summaryStyle}>{h.summary}</Text>
-                  <HeadlineFoot h={h} theme={theme} aes={aes} />
+                  <HeadlineFoot h={h} theme={theme} aes={aes} hideSource />
                 </View>
               </View>
             </PressableScale>

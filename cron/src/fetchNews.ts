@@ -241,7 +241,7 @@ export class PerplexitySource implements DigestSource {
     // headlines is the ranked order; imageUrl is attached to each headline (persisted
     // via the digest payload) and mirrored onto the quality records (run log only) by URL.
     const ogImages = await fetchOgImages(headlines);
-    const ogCounts: Record<ImageSource, number> = { og: 0, twitter: 0, none: 0 };
+    const ogCounts: Record<ImageSource, number> = { og: 0, twitter: 0, none: 0, deduped: 0 };
     headlines.forEach((h, i) => {
       const og = ogImages[i];
       if (!og) return;
@@ -255,7 +255,7 @@ export class PerplexitySource implements DigestSource {
     });
     logger.info(
       `og:image [${region}] — ${ogCounts.og + ogCounts.twitter}/${headlines.length} ` +
-        `(og:${ogCounts.og} twitter:${ogCounts.twitter} none:${ogCounts.none})`,
+        `(og:${ogCounts.og} twitter:${ogCounts.twitter} none:${ogCounts.none} deduped:${ogCounts.deduped})`,
     );
 
     const filterRejectRate =
