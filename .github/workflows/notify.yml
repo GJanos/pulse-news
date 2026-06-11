@@ -1,0 +1,48 @@
+name: Notify
+
+# Scheduled Actions caveats:
+# - GitHub fires `schedule` best-effort; delays of 5–15+ minutes are normal.
+#   notifyWindow() derives the half-hour window from the *actual* run time, so
+#   a delay that crosses a half-hour boundary skips that window's devices —
+#   they simply miss that day's ping. Acceptable for now; revisit if reports
+#   accumulate (e.g. derive the window from the scheduled time instead).
+# - GitHub disables schedules after 60 days without repo activity.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: cron
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: cron/package-lock.json
+
+      - run: npm ci
+
+      - run: npx ts-node -r tsconfig-paths/register jobs/notify.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
