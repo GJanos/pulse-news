@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useMemo, useState } from 'react';
 import { View, Text, Pressable, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { THEMES, AESTHETICS, font } from '../themes';
 import { useDigestPageData } from '../hooks/useDigestPageData';
+import { useTodayISO } from '../hooks/useTodayISO';
 import { useJumpTargets, type ListItem } from '../hooks/useJumpTargets';
 import JumpModal from './JumpModal';
 import { isoDateAtDayIndex } from '../data';
@@ -27,7 +28,11 @@ export const DigestPage = React.memo(
     ref,
   ) {
     const isToday = dayIndex === 0;
-    const date = useMemo(() => isoDateAtDayIndex(dayIndex), [dayIndex]);
+    // todayISO is a dep on purpose: when the app foregrounds past midnight the
+    // mounted page must move to the new date, or a notification tap refreshes
+    // yesterday's digest until the app is killed and relaunched.
+    const todayISO = useTodayISO();
+    const date = useMemo(() => isoDateAtDayIndex(dayIndex, todayISO), [dayIndex, todayISO]);
 
     const theme = useAppStore((s) => THEMES[s.prefs.theme]);
     const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
