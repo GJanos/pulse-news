@@ -13,7 +13,7 @@
     "model": {
       "name": "sonar-pro",
       "reasoningEffort": "low",
-      "temperature": 0.35,
+      "temperature": 0.2,
       "searchType": "pro",
       "searchContextSize": "medium"
     },
@@ -37,7 +37,8 @@
         "attemptDelay": 2000,
         "retryDelay": 3000,
         "minResults": 5,
-        "recencySequence": ["day", "day", "week", "week", "month", "month"],
+        "recencySequence": ["day", "day", "day", "day", "day", "day"],
+        "domainFilterRounds": 2,
         "buffer": 1
       },
       "ranking": {

@@ -27,7 +27,11 @@ export const defaultConfig: PulseConfig = {
       attemptDelay: 2000,
       retryDelay: 1000,
       minResults: 5,
-      recencySequence: ['day', 'day', 'week', 'week', 'month', 'month'],
+      // Day-only on purpose: widening to week/month resurfaces stale stories.
+      // Repeated 'day' rounds still help — the live search index returns
+      // different candidates per call.
+      recencySequence: ['day', 'day', 'day', 'day', 'day', 'day'],
+      domainFilterRounds: 2,
       buffer: 0,
     },
     ranking: {
