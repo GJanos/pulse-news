@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -96,34 +96,39 @@ export function ImageViewerModal({ uri, onClose }: Props): React.ReactElement {
 
   return (
     <Modal visible={!!uri} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        <GestureDetector gesture={gesture}>
-          <Animated.View style={[s.imageWrap, animatedStyle]}>
-            {uri ? (
-              <Image
-                source={{ uri }}
-                contentFit="contain"
-                style={{ width: W, height: H }}
-                testID="image-viewer-image"
-              />
-            ) : null}
-          </Animated.View>
-        </GestureDetector>
-        <Pressable
-          onPress={onClose}
-          hitSlop={10}
-          accessibilityLabel="Close image"
-          style={s.closeBtn}
-          testID="image-viewer-close"
-        >
-          <PulseIcon name="close" size={18} color="#fff" strokeWidth={2} />
-        </Pressable>
-      </View>
+      {/* Modal hosts a separate native view tree — RNGH gestures are dead inside
+          it unless it gets its own GestureHandlerRootView. */}
+      <GestureHandlerRootView style={s.root}>
+        <View style={s.backdrop}>
+          <GestureDetector gesture={gesture}>
+            <Animated.View style={[s.imageWrap, animatedStyle]}>
+              {uri ? (
+                <Image
+                  source={{ uri }}
+                  contentFit="contain"
+                  style={{ width: W, height: H }}
+                  testID="image-viewer-image"
+                />
+              ) : null}
+            </Animated.View>
+          </GestureDetector>
+          <Pressable
+            onPress={onClose}
+            hitSlop={10}
+            accessibilityLabel="Close image"
+            style={s.closeBtn}
+            testID="image-viewer-close"
+          >
+            <PulseIcon name="close" size={18} color="#fff" strokeWidth={2} />
+          </Pressable>
+        </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
+  root: { flex: 1 },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.96)',

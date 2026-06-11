@@ -18,7 +18,7 @@ import PulseIcon from '../components/Icon';
 import Flag from '../components/Flag';
 import { HeadlineImage } from '../components/HeadlineImage';
 import { ImageViewerModal } from '../components/ImageViewerModal';
-import { resolveArticleSwipe } from '../utils/swipe';
+import { resolveArticleSwipe, ARTICLE_ACTIVE_OFFSET_X } from '../utils/swipe';
 import { setEdgeExclusion } from '../../modules/gesture-exclusion';
 import type { Headline, Region } from '../types';
 
@@ -82,7 +82,7 @@ export default function ArticleScreen({
   const pan = useMemo(
     () =>
       Gesture.Pan()
-        .activeOffsetX([-15, 15])
+        .activeOffsetX([-ARTICLE_ACTIVE_OFFSET_X, ARTICLE_ACTIVE_OFFSET_X])
         .failOffsetY([-10, 10])
         .onUpdate((e) => {
           // Track the finger 1:1 in the close direction; clamp the open direction at 0.
@@ -290,7 +290,13 @@ export default function ArticleScreen({
           </Pressable>
 
           <View style={[s.copyRow, { backgroundColor: theme.chip }]}>
-            <View style={s.sourceInfo}>
+            <Pressable
+              onPress={openArticle}
+              hitSlop={8}
+              accessibilityLabel="Open full article"
+              testID="source-link"
+              style={({ pressed }) => [s.sourceInfo, { opacity: pressed ? 0.6 : 1 }]}
+            >
               <Text
                 numberOfLines={1}
                 style={{
@@ -303,7 +309,7 @@ export default function ArticleScreen({
                 {hostname}
               </Text>
               <PulseIcon name="link" size={13} color={theme.accent} strokeWidth={1.8} />
-            </View>
+            </Pressable>
             <Pressable
               onPress={copyLink}
               accessibilityLabel={copied ? 'Link copied' : 'Copy link'}
