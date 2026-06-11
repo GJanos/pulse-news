@@ -16,6 +16,7 @@ import CalendarModal from './CalendarModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes';
 import { isoDateAtDayIndex, formatLongDate } from '../data';
+import { shouldBlockSettingsEntry } from '../utils/swipe';
 import { useTodayISO } from '../hooks/useTodayISO';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
@@ -314,17 +315,30 @@ export default React.memo(function DigestPager({
     scrollRef.current?.scrollTo({ x: target * W, animated: true });
   }, [screen, dayIndex, maxDayIndex, W]);
 
+  // Timestamp of the last settle on a day page; gates swipe-entry into settings
+  // so an overshooting fling through "today" bounces back instead of landing
+  // in settings. The header settings button bypasses this (store-driven scroll).
+  const lastDaySettleAt = useRef(0);
+
   // When the user settles on a page, reflect it back into the store. Setting
   // currentPage *before* the store write means the sync effect above no-ops.
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const page = Math.round(e.nativeEvent.contentOffset.x / W);
       if (page === currentPage.current) return;
-      currentPage.current = page;
       const target = targetForPage(page, maxDayIndex);
       if (target.kind === 'settings') {
+        if (shouldBlockSettingsEntry(Date.now(), lastDaySettleAt.current)) {
+          const back = pageForDay(dayIndex, maxDayIndex);
+          currentPage.current = back;
+          scrollRef.current?.scrollTo({ x: back * W, animated: true });
+          return;
+        }
+        currentPage.current = page;
         if (screen !== 'settings') setScreen('settings');
       } else {
+        currentPage.current = page;
+        lastDaySettleAt.current = Date.now();
         if (screen !== 'digest') setScreen('digest');
         if (target.dayIndex !== dayIndex) setDayIndex(target.dayIndex);
       }

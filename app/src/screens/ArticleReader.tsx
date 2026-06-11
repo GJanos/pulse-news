@@ -23,7 +23,12 @@ import { font, THEMES, AESTHETICS } from '../themes';
 import { useAppStore } from '../store';
 import PulseIcon from '../components/Icon';
 import { openExternalUrl } from '../utils/openExternalUrl';
-import { resolveArticleSwipe, SWIPE_DISTANCE, SWIPE_VELOCITY } from '../utils/swipe';
+import {
+  resolveArticleSwipe,
+  SWIPE_DISTANCE,
+  SWIPE_VELOCITY,
+  READER_EDGE_ACTIVE_OFFSET_X,
+} from '../utils/swipe';
 import { setEdgeExclusion } from '../../modules/gesture-exclusion';
 
 const EDGE_WIDTH = 40;
@@ -100,7 +105,7 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
   const pan = useMemo(
     () =>
       Gesture.Pan()
-        .activeOffsetX([5, 999])
+        .activeOffsetX([READER_EDGE_ACTIVE_OFFSET_X, 999])
         .failOffsetY([-10, 10])
         .onUpdate((e) => {
           if (!canGoBackSV.value) {
