@@ -2,46 +2,42 @@
 
 ## V1
 
-- on article screen the source and open icon should also open up the article when clicked
-- in image viewer modal mode, images are not zoom-able
+> 2026-06-11: the items below landed on the `fable` integration branch (PRs #33–#38);
+> grouping/evaluation in `docs/superpowers/plans/2026-06-11-fable-todo-groups.md`.
+> Merge `fable` → `develop` when the on-device check passes.
 
-- swiping motions need to be rethinked since people with small hands to dexit and needing to do a right swipe to go back in article and art. reader mode can be challenging for them
+### Open
 
-- sources sometimes are bad, like hungary received 4/5 non hungarian international coverage news, all of them were quite outdated due to this. UK received most of it's news from BBC that had paywalled content, so a throughout investigation of all sources is needed. So for all supported regions we need to collect reliable non paywalled og:image supporting non-politically aligned sourecs, at least 3...
-  - response variance is REALLY high, i mean after the above bad responses I received, I just re-ran the whole thing, and got WAY better results for all countries, hungary got resolved, and I received many pictures, great content, and I changed nothing. This is really bugging me because I just want to let go and let all my runs be handled automatically having produced a good outcome each day. I need to figure out a system that can be either : more deterministically good or have oversight on each day's news, like I complete a day's news section, all 5, later 10 articles are ready, then send it over to claude, it identifies if a current countries digests are up to our standards or not, and if it is bad, it keeps the good news maybe/ or just plainly restarts the whole process. But to be honest, tuning this can be hard and COSTLY so I am waiting for other great ideas on this front how to make things more deterministic
+- Left-hand / small-hand ergonomics — assessment with ranked candidates in `docs/ux/left-hand-ergonomics.md`; next step is the bottom-corner back affordance in the reader, after on-device validation
+- Variance oversight (LLM judge that re-runs bad digests) — **deferred**: costly and hard to tune. Deterministic levers shipped first (hard `search_domain_filter`, day-only recency, temperature 0.2). The daily-digest workflow now uploads each run's quality log as an artifact — collect 1–2 weeks and revisit; a cheap deterministic gate (image %, domain-match %) can ride on Phase 2's structured run log
+- Native ads research — from a business perspective, investigate native/sponsored content ads as an alternative to banner ads
 
-- retry days should remain day day day day shit, not week
+### Done (on `fable`)
 
-NEW TODOS (from János chat — translated)
-
-~~Storage compression~~ — **evaluated, rejected as compression.** 2 weeks of digest JSON is <1MB in MMKV (9 regions × 5 headlines × ~1KB × 14 days); the 261MB is the expo-image disk cache holding full-res og:images (1–3MB each). Compressing JSON would save nothing. Shipped instead: Settings → Storage → "Clear image cache". Real fix is server-side Phase 3 (resize to ~400px WebP in a Supabase bucket → ~10–20MB per two weeks, also fixes URL rot).
-Summary toggle — summary display in digest page should be configurable via settings
-Source name open icon — fix the open icon next to source name: either make it functional (open article) or remove it
-Image viewer — tapping a pulled image should open full size with zoom support
-Calendar day view — add a calendar-based day picker for browsing history
-Swipe-left accidental settings entry — add a small activation delay when swiping left into today's digest, to prevent accidentally entering settings
-Larger swipe + dead zone — increase swipe range and dead zone threshold globally
-Left-hand ergonomics — reading articles with the left hand is awkward; needs UX review (ties into the small-hand swipe issue in old todos)
-Native ads research — from a business perspective, investigate native/sponsored content ads as an alternative to banner ads
+- ~~Stale today-date after notification open~~ — root cause: `DigestPage` memoized its date on `[dayIndex]` only; fixed with `useTodayISO()` foreground rollover (#34)
+- ~~Sources bad / outdated (Hungary, UK paywalled)~~ — curated sources are now a hard Perplexity `search_domain_filter` allowlist for the first 2 retry rounds (the prompt hint was routinely ignored); Hungary += portfolio.hu, index.hu (#33)
+- ~~Retry days should remain day day day day, not week~~ — recency sequence is day-only (#33)
+- ~~Storage compression~~ — **rejected as compression**: 2 weeks of digest JSON is <1MB in MMKV; the 261MB is the expo-image disk cache of full-res og:images. Shipped Settings → Storage → "Clear image cache" (#38); the durable fix stays Phase 3 (400px WebP in a bucket)
+- ~~Summary toggle~~ — `showSummaries` pref + Settings row (#35)
+- ~~Source name open icon~~ — made functional: opens the original article per `openLinksIn`; also wired on the ArticleScreen hostname row (#35, #36)
+- ~~Image viewer~~ — pinch/pan/double-tap viewer on the article hero; zoom fix: RNGH needs its own root view inside Modal (#35, #36)
+- ~~Calendar day view~~ — month-grid picker on the day-header date, bounded to the history window (#35)
+- ~~Swipe-left accidental settings entry~~ — 600ms cooldown after settling on a day page before a swipe can enter settings (#36)
+- ~~Larger swipe + dead zone~~ — 72px / 0.6 velocity / ±22px article dead zone, centralized in `utils/swipe.ts` (#36)
+- ~~Vercel cron → GitHub Actions~~ — jobs moved to `cron/jobs/`, ts-node runner, explicit exits, quality-log artifact, vercel.json removed (#37)
 
 ### Server-side plan
 
 > Refined for hand-off to a brainstorming agent. Phases ordered by dependency:
 > 0→1 are "just do it", 2→3 are understood enhancements, 4 needs real brainstorming.
 
-**Phase 0 — Deploy (unblocks everything else)**
+**Phase 0 — Deploy (unblocks everything else)** _(updated 2026-06-11: scheduled jobs moved to GitHub Actions, PR #37)_
 
-- [ ] Deploy `cron/` to Vercel — project root dir = `cron/`; `vercel.json` (repo root) defines the two schedules
-- [ ] Set Vercel env vars:
-  - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
-  - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (literal `\n`, not real newlines)
-  - `PERPLEXITY_API_KEY`
-  - `CRON_SECRET` — random string; Vercel sends `Authorization: Bearer <CRON_SECRET>` per invocation
-- [ ] Verify the route split runs on schedule:
-  - `GET /api/daily-digest` — fetch + persist + FCM to null-`notify_at` devices (`0 5 * * *`)
-  - `GET /api/notify` — FCM to devices in current 30-min window (`*/30 * * * *`)
+- [x] Scheduled jobs run as GitHub Actions workflows: `daily-digest.yml` (06:00 UTC) and `notify.yml` (every 30 min), executing `cron/jobs/*.ts` via ts-node; `vercel.json` deleted
+- [ ] Set GitHub repo **Actions secrets**: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (literal `\n`), `PERPLEXITY_API_KEY`, `ANTHROPIC_API_KEY` — then trigger each workflow once via `workflow_dispatch` to smoke-test
+- [ ] `/api/account` (server-side device registration) still needs an HTTP host — deploy `cron/` to Vercel for that one route (with `CRON_SECRET` no longer needed), or move it to a Supabase Edge Function; then set `EXPO_PUBLIC_API_URL` in `app/.env`
   - `cron/index.ts` stays the local test runner (all devices, no time filter)
-- [ ] Once the deployment URL exists → set `EXPO_PUBLIC_API_URL` in `app/.env` so `POST /api/account` (server-side device registration) goes live
+- Caveats (documented in the workflows): GH schedules are best-effort (5–15 min delays; a notify delay across a half-hour boundary skips that window) and auto-disable after 60 idle days
 - _Open Q: how to smoke-test cron in prod without spamming real devices?_
 
 **Phase 1 — Harden what's deployed**
