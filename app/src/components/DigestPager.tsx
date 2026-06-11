@@ -15,6 +15,7 @@ import PinnedHeaderBar from './PinnedHeaderBar';
 import { ErrorBoundary } from './ErrorBoundary';
 import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes';
 import { isoDateAtDayIndex, formatLongDate } from '../data';
+import { useTodayISO } from '../hooks/useTodayISO';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
@@ -128,6 +129,7 @@ export function useDigestRefreshOnNonce(
 const DayHeader = React.memo(function DayHeader({
   dayIndex,
   maxDayIndex,
+  todayISO,
   theme,
   aes,
   onSetDay,
@@ -135,13 +137,15 @@ const DayHeader = React.memo(function DayHeader({
 }: {
   dayIndex: number;
   maxDayIndex: number;
+  /** Fresh today date — busts the memo when the app foregrounds past midnight. */
+  todayISO: string;
   theme: Theme;
   aes: Aesthetic;
   onSetDay: (n: number) => void;
   topInset: number;
 }) {
   const isToday = dayIndex === 0;
-  const fmt = formatLongDate(isoDateAtDayIndex(dayIndex));
+  const fmt = formatLongDate(isoDateAtDayIndex(dayIndex, todayISO));
 
   return (
     <View
@@ -259,6 +263,7 @@ export default React.memo(function DigestPager({
 
   const { getSlotSetter, setActivePage } = usePageRefs<DigestPageHandle>(activePageRef);
   useDigestRefreshOnNonce(activePageRef);
+  const todayISO = useTodayISO();
 
   const scrollRef = useRef<GHScrollView>(null);
   // Page the strip is currently settled on. Initialised from the first-render
@@ -350,6 +355,7 @@ export default React.memo(function DigestPager({
               <DayHeader
                 dayIndex={pageDayIndex}
                 maxDayIndex={maxDayIndex}
+                todayISO={todayISO}
                 theme={theme}
                 aes={aes}
                 onSetDay={setDayIndex}
