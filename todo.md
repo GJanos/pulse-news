@@ -2,63 +2,75 @@
 
 ## V1
 
-- swiping motings are too sensitive they should only fire when user swipes not in the middle but towards to the sides at least
-  - Out of scope (later slices): article-reader hero image, global
-    "Top News" images, server-side image caching/proxying.
+- on article screen the source and open icon should also open up the article when clicked
+- in image viewer modal mode, images are not zoom-able
 
-- [ ] refactor costs logging in cron. Have normal log lines like before, but they also need to be refactored, but the main thing is I would love for a run to create a large json object of the data being logged in a format that is transmittable via http, but we kind of already have that, just it needs improvements
+- swiping motions need to be rethinked since people with small hands to dexit and needing to do a right swipe to go back in article and art. reader mode can be challenging for them
 
-# bugs
+- sources sometimes are bad, like hungary received 4/5 non hungarian international coverage news, all of them were quite outdated due to this. UK received most of it's news from BBC that had paywalled content, so a throughout investigation of all sources is needed. So for all supported regions we need to collect reliable non paywalled og:image supporting non-politically aligned sourecs, at least 3...
+  - response variance is REALLY high, i mean after the above bad responses I received, I just re-ran the whole thing, and got WAY better results for all countries, hungary got resolved, and I received many pictures, great content, and I changed nothing. This is really bugging me because I just want to let go and let all my runs be handled automatically having produced a good outcome each day. I need to figure out a system that can be either : more deterministically good or have oversight on each day's news, like I complete a day's news section, all 5, later 10 articles are ready, then send it over to claude, it identifies if a current countries digests are up to our standards or not, and if it is bad, it keeps the good news maybe/ or just plainly restarts the whole process. But to be honest, tuning this can be hard and COSTLY so I am waiting for other great ideas on this front how to make things more deterministic
 
-Root Cause Analysis: The .5s Lag
-Your observation:
+- retry days should remain day day day day shit, not week
 
-when going dt → d(t-1) → dt → settings, settings sits blank for .5s until interactive
+NEW TODOS (from János chat — translated)
 
-My Assessment:
+Storage compression — 2 weeks of history = 261MB; evaluate saving data compressed, decompressing on demand (in-memory when active, compressed on fresh start). Assess latency tradeoff.
+Summary toggle — summary display in digest page should be configurable via settings
+Source name open icon — fix the open icon next to source name: either make it functional (open article) or remove it
+Image viewer — tapping a pulled image should open full size with zoom support
+Calendar day view — add a calendar-based day picker for browsing history
+Swipe-left accidental settings entry — add a small activation delay when swiping left into today's digest, to prevent accidentally entering settings
+Larger swipe + dead zone — increase swipe range and dead zone threshold globally
+Left-hand ergonomics — reading articles with the left hand is awkward; needs UX review (ties into the small-hand swipe issue in old todos)
+Native ads research — from a business perspective, investigate native/sponsored content ads as an alternative to banner ads
 
-The lag is not caused by:
+### Server-side plan
 
-❌ Settings screen not being mounted (now fixed)
-❌ Reanimated worklet warnings (already fixed)
-❌ ScrollView responsiveness (paging is handled UI-thread side)
-Likely causes:
+> Refined for hand-off to a brainstorming agent. Phases ordered by dependency:
+> 0→1 are "just do it", 2→3 are understood enhancements, 4 needs real brainstorming.
 
-RegionPicker initialization — On first touch, useEffect in RegionPicker re-sorts orderedRegions; React re-renders RegionSection × N regions
-CurrencyPicker first open — Currency picker may do async work (lookup, format) on first interaction
-FlatList computation — listData and indexMapRef in DigestPage are computed on first mount; if many regions/headlines, this JS work blocks the thread
+**Phase 0 — Deploy (unblocks everything else)**
 
-# bugs
+- [ ] Deploy `cron/` to Vercel — project root dir = `cron/`; `vercel.json` (repo root) defines the two schedules
+- [ ] Set Vercel env vars:
+  - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+  - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (literal `\n`, not real newlines)
+  - `PERPLEXITY_API_KEY`
+  - `CRON_SECRET` — random string; Vercel sends `Authorization: Bearer <CRON_SECRET>` per invocation
+- [ ] Verify the route split runs on schedule:
+  - `GET /api/daily-digest` — fetch + persist + FCM to null-`notify_at` devices (`0 5 * * *`)
+  - `GET /api/notify` — FCM to devices in current 30-min window (`*/30 * * * *`)
+  - `cron/index.ts` stays the local test runner (all devices, no time filter)
+- [ ] Once the deployment URL exists → set `EXPO_PUBLIC_API_URL` in `app/.env` so `POST /api/account` (server-side device registration) goes live
+- _Open Q: how to smoke-test cron in prod without spamming real devices?_
 
-LOG 2026-06-06T09:09:45.950Z DEBUG (digests) multiGet: 9/9 cache hits for 2026-06-04
-LOG 2026-06-06T09:09:45.951Z INFO (useGlobalHeadlines) fetching global headlines for 2026-06-04
-LOG 2026-06-06T09:09:45.952Z INFO (digests) loading global headlines for 2026-06-04
-LOG VirtualizedList: You have a large list that is slow to update - make sure your renderItem function renders components that follow React performance best practices like PureComponent, shouldComponentUpdate, etc. {"contentLength": 12446.857421875, "dt": 780, "prevDt": 132991}
+**Phase 1 — Harden what's deployed**
 
-### Bugs
+- [ ] Tighten `devices` table RLS — replace `USING (true)` / `WITH CHECK (true)` with `user_id = auth.uid()`, or make `/api/account` the only writer and lock the table down
+- _Open Q: do clients ever write `devices` directly, or can the route be the sole writer?_
 
-- [ ] Notifications are often missed due to Android issues
+**Phase 2 — Observability: cost logging refactor**
 
-### Deployment
+- [ ] Keep human-readable log lines, but have each cron run emit one structured JSON object of all logged/cost data, shaped for HTTP transmission (~80% there; needs a consistent schema + cleanup)
+- _Open Q: where does the JSON go — route response, Supabase table, or external sink? That drives the schema._
 
-- [ ] **Set `EXPO_PUBLIC_API_URL`** — once Vercel is deployed, add the deployment URL to `app/.env` so `POST /api/account` (server-side device registration) becomes available
-- [ ] **Tighten `devices` table RLS** — current policies use `USING (true)` / `WITH CHECK (true)`, meaning any authenticated user can read/write any device row. Restrict to `user_id = auth.uid()` or move registration through the Vercel `/api/account` route which enforces identity server-side
-- [ ] **Vercel deployment** — deploy the two cron API routes to Vercel:
-  - Vercel project root directory must be set to `cron/` (dashboard → Settings → General → Root Directory)
-  - `vercel.json` at repo root defines the two cron schedules; Vercel reads it from the project root
-  - Required env vars (set in Vercel dashboard → Settings → Environment Variables):
-    - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
-    - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (store private key with literal `\n`, not real newlines)
-    - `PERPLEXITY_API_KEY`
-    - `CRON_SECRET` — any random string; Vercel sends `Authorization: Bearer <CRON_SECRET>` on each cron invocation to prevent unauthorized triggers
-  - Route split:
-    - `GET /api/daily-digest` — fetch + persist + FCM to null-notify_at devices; schedule `0 5 * * *`
-    - `GET /api/notify` — FCM to devices in current 30-min window; schedule `*/30 * * * *`
-  - `cron/index.ts` remains the local test runner (sends to all devices, no time filtering)
+**Phase 3 — Image durability (server-side proxy/cache)**
+
+Client caching (expo-image) is already solved; this is purely source-URL rot.
+
+- [ ] During the pipeline: download each `og:image`, resize (~400px WebP), upload to a Supabase Storage bucket, store the permanent bucket URL in `imageUrl`
+  - Solves URL rot (articles 404 after days), 2–3MB image sizes, hotlink 403s. ~50–100 imgs/day ≈ trivial cost (free tier 1GB)
+- _Open Q: resize/encode in Node cron (sharp) vs. Supabase image transform; plus a backfill + eviction policy alongside existing `db.evict`._
+
+**Phase 4 — Usage statistics collector (new component, research-y)**
+
+- [ ] Component to record usage stats (articles read, time in app) + handle device-registration deletion cleanup
+  - Lawful basis = "legitimate interests" (no consent popup) **if** Privacy Policy discloses it; keep aggregate/pseudonymous (userID + articleID + timestamp)
+- _Open Q: event schema, collection path (app → `/api/...` → Supabase), and retention — the real brainstorm candidate._
 
 ### Deferred / Research
 
-- [ ] Record user usage statistics for metrics and analysis _(see GDPR section under Go Live)_ #referencing the gdpr section
+- [ ] Record user usage statistics for metrics and analysis _(see GDPR section under Go Live; overlaps Phase 4 above)_
 - [ ] Start using bun as a package manager
 
 ---
