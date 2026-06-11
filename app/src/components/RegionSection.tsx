@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { PressableScale } from 'react-native-pressable-scale';
+import { openArticleUrl } from '../utils/openArticleUrl';
 import { THEMES, AESTHETICS, font } from '../themes';
 import type { Theme, Aesthetic } from '../themes';
 import PulseIcon from './Icon';
@@ -32,7 +33,12 @@ function HeadlineFoot({
   return (
     <View style={s.headlineFoot}>
       {showSource ? (
-        <View style={s.sourceRow}>
+        <Pressable
+          onPress={() => openArticleUrl(h.url)}
+          hitSlop={8}
+          accessibilityLabel={`Open article on ${h.sourceName}`}
+          style={({ pressed }) => [s.sourceRow, { opacity: pressed ? 0.6 : 1 }]}
+        >
           <Text
             style={{
               fontFamily: font(aes, 'ui', 600),
@@ -44,7 +50,7 @@ function HeadlineFoot({
             {h.sourceName}
           </Text>
           <PulseIcon name="link" size={11} color={theme.accent} strokeWidth={1.8} />
-        </View>
+        </Pressable>
       ) : null}
       {h.category ? (
         <Text
@@ -73,6 +79,7 @@ function RegionSectionImpl({
   const baseCurrency = useAppStore((st) => st.prefs.baseCurrency);
   const regionStyle = useAppStore((st) => st.prefs.regionStyle);
   const imagesEnabled = useAppStore((st) => st.prefs.imagesEnabled);
+  const showSummaries = useAppStore((st) => st.prefs.showSummaries);
   const photoCount = useAppStore((st) => st.prefs.photoCount);
   const showFlags = regionStyle !== 'code';
   const imagesOn = imagesEnabled !== false;
@@ -216,7 +223,7 @@ function RegionSectionImpl({
                   >
                     {h.title}
                   </Text>
-                  <Text style={summaryStyle}>{h.summary}</Text>
+                  {showSummaries ? <Text style={summaryStyle}>{h.summary}</Text> : null}
                   <HeadlineFoot h={h} theme={theme} aes={aes} />
                 </View>
               </View>
@@ -249,7 +256,7 @@ function RegionSectionImpl({
                   >
                     {h.title}
                   </Text>
-                  <Text style={summaryStyle}>{h.summary}</Text>
+                  {showSummaries ? <Text style={summaryStyle}>{h.summary}</Text> : null}
                 </View>
                 {isThumb ? (
                   <HeadlineImage

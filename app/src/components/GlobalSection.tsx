@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { PressableScale } from 'react-native-pressable-scale';
+import { openArticleUrl } from '../utils/openArticleUrl';
 import { THEMES, AESTHETICS, font } from '../themes';
 import PulseIcon from './Icon';
 import { HeadlineImage } from './HeadlineImage';
@@ -19,6 +20,7 @@ function GlobalSectionImpl({ headlines, onOpenArticle }: GlobalSectionProps): Re
   const theme = useAppStore((s) => THEMES[s.prefs.theme]);
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
   const imagesEnabled = useAppStore((s) => s.prefs.imagesEnabled);
+  const showSummaries = useAppStore((s) => s.prefs.showSummaries);
 
   return (
     <View style={s.container}>
@@ -129,19 +131,26 @@ function GlobalSectionImpl({ headlines, onOpenArticle }: GlobalSectionProps): Re
               >
                 {h.title}
               </Text>
-              <Text
-                style={{
-                  fontFamily: font(aes, 'body'),
-                  fontSize: aes.bodySize,
-                  lineHeight: aes.bodyLh,
-                  color: theme.textDim,
-                  marginTop: 8,
-                }}
-              >
-                {h.summary}
-              </Text>
+              {showSummaries ? (
+                <Text
+                  style={{
+                    fontFamily: font(aes, 'body'),
+                    fontSize: aes.bodySize,
+                    lineHeight: aes.bodyLh,
+                    color: theme.textDim,
+                    marginTop: 8,
+                  }}
+                >
+                  {h.summary}
+                </Text>
+              ) : null}
               <View style={s.headlineFoot}>
-                <View style={s.sourceRow}>
+                <Pressable
+                  onPress={() => openArticleUrl(h.url)}
+                  hitSlop={8}
+                  accessibilityLabel={`Open article on ${h.sourceName}`}
+                  style={({ pressed }) => [s.sourceRow, { opacity: pressed ? 0.6 : 1 }]}
+                >
                   <Text
                     style={{
                       fontFamily: font(aes, 'ui', 600),
@@ -153,7 +162,7 @@ function GlobalSectionImpl({ headlines, onOpenArticle }: GlobalSectionProps): Re
                     {h.sourceName}
                   </Text>
                   <PulseIcon name="link" size={11} color={theme.accent} strokeWidth={1.8} />
-                </View>
+                </Pressable>
                 <View style={[s.regionPill, { backgroundColor: theme.accentSoft }]}>
                   <Text
                     style={{

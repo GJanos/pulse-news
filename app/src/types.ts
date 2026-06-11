@@ -63,6 +63,8 @@ export interface UserPreferences {
   regionStyle: 'flag' | 'code';
   /** Master switch for digest photos. */
   imagesEnabled: boolean;
+  /** Show the one-line summary under each headline on the digest page. */
+  showSummaries: boolean;
   /** Max stories per region that show a photo (1 = lead only). Range 1–3. */
   photoCount: number;
   baseCurrency: string;

@@ -228,6 +228,21 @@ export default function SettingsScreen({
           <Row
             theme={theme}
             aes={aes}
+            label="Show summaries"
+            sub="One-line summary under each headline."
+            value={
+              <Switch
+                value={prefs.showSummaries}
+                onValueChange={(v) => setPref('showSummaries', v)}
+                trackColor={{ false: theme.chip, true: theme.accent }}
+                thumbColor={theme.bg}
+                accessibilityLabel="Show summaries"
+              />
+            }
+          />
+          <Row
+            theme={theme}
+            aes={aes}
             label="Open links in"
             value={
               <SegRow<UserPreferences['openLinksIn']>
