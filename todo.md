@@ -14,7 +14,7 @@
 
 NEW TODOS (from János chat — translated)
 
-Storage compression — 2 weeks of history = 261MB; evaluate saving data compressed, decompressing on demand (in-memory when active, compressed on fresh start). Assess latency tradeoff.
+~~Storage compression~~ — **evaluated, rejected as compression.** 2 weeks of digest JSON is <1MB in MMKV (9 regions × 5 headlines × ~1KB × 14 days); the 261MB is the expo-image disk cache holding full-res og:images (1–3MB each). Compressing JSON would save nothing. Shipped instead: Settings → Storage → "Clear image cache". Real fix is server-side Phase 3 (resize to ~400px WebP in a Supabase bucket → ~10–20MB per two weeks, also fixes URL rot).
 Summary toggle — summary display in digest page should be configurable via settings
 Source name open icon — fix the open icon next to source name: either make it functional (open article) or remove it
 Image viewer — tapping a pulled image should open full size with zoom support

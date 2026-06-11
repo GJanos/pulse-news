@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image as ExpoImage } from 'expo-image';
 import { AESTHETICS, THEMES, font } from '../themes';
 import type { Theme, Aesthetic } from '../themes';
 import { useAppStore } from '../store';
@@ -44,6 +45,22 @@ export default function SettingsScreen({
 
   const handleBack = (): void => setScreen('digest');
   const [deleting, setDeleting] = useState(false);
+
+  const [cacheCleared, setCacheCleared] = useState(false);
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+    },
+    [],
+  );
+  const clearImageCache = (): void => {
+    void Promise.all([ExpoImage.clearDiskCache(), ExpoImage.clearMemoryCache()]).then(() => {
+      setCacheCleared(true);
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+      clearTimer.current = setTimeout(() => setCacheCleared(false), 2000);
+    });
+  };
 
   const confirmDelete = (): void => {
     Alert.alert(
@@ -292,6 +309,40 @@ export default function SettingsScreen({
                   onChange={(v) => setPref('photoCount', v)}
                 />
               </Gated>
+            }
+          />
+        </Group>
+
+        <Group theme={theme} aes={aes} label="Storage">
+          <Row
+            theme={theme}
+            aes={aes}
+            label="Clear image cache"
+            sub={
+              'Frees downloaded article photos — the bulk of app storage.\nPhotos re-download as you read.'
+            }
+            value={
+              <Pressable
+                onPress={clearImageCache}
+                accessibilityLabel={cacheCleared ? 'Image cache cleared' : 'Clear image cache'}
+                style={({ pressed }) => ({
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  backgroundColor: theme.chip,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontFamily: font(aes, 'ui', 600),
+                    fontSize: 12.5,
+                    color: cacheCleared ? theme.accent : theme.text,
+                  }}
+                >
+                  {cacheCleared ? 'Cleared' : 'Clear'}
+                </Text>
+              </Pressable>
             }
           />
         </Group>

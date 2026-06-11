@@ -5,3 +5,6 @@ import React from 'react';
 export function Image(props: Record<string, unknown>): React.ReactElement {
   return React.createElement('ExpoImage', props);
 }
+
+Image.clearDiskCache = jest.fn(() => Promise.resolve(true));
+Image.clearMemoryCache = jest.fn(() => Promise.resolve(true));
