@@ -17,6 +17,7 @@ import { useAppStore } from '../store';
 import PulseIcon from '../components/Icon';
 import Flag from '../components/Flag';
 import { HeadlineImage } from '../components/HeadlineImage';
+import { ImageViewerModal } from '../components/ImageViewerModal';
 import { resolveArticleSwipe } from '../utils/swipe';
 import { setEdgeExclusion } from '../../modules/gesture-exclusion';
 import type { Headline, Region } from '../types';
@@ -39,6 +40,7 @@ export default function ArticleScreen({
   const insets = useSafeAreaInsets();
   const { width: W } = useWindowDimensions();
   const [copied, setCopied] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Guards onClose so it fires exactly once across the back button + gesture paths.
@@ -177,12 +179,18 @@ export default function ArticleScreen({
           showsVerticalScrollIndicator={false}
         >
           {imagesEnabled && headline.imageUrl ? (
-            <HeadlineImage
-              uri={headline.imageUrl}
-              testID="hero-image"
-              aspectRatio={16 / 9}
-              style={{ width: W, marginHorizontal: -22, marginTop: -22, marginBottom: 20 }}
-            />
+            <Pressable
+              onPress={() => setViewerOpen(true)}
+              accessibilityLabel="View image full size"
+              testID="hero-image-press"
+            >
+              <HeadlineImage
+                uri={headline.imageUrl}
+                testID="hero-image"
+                aspectRatio={16 / 9}
+                style={{ width: W, marginHorizontal: -22, marginTop: -22, marginBottom: 20 }}
+              />
+            </Pressable>
           ) : null}
           <Text
             style={{
@@ -344,6 +352,11 @@ export default function ArticleScreen({
             </Text>
           </View>
         </ScrollView>
+
+        <ImageViewerModal
+          uri={viewerOpen ? (headline.imageUrl ?? null) : null}
+          onClose={() => setViewerOpen(false)}
+        />
       </Animated.View>
     </GestureDetector>
   );

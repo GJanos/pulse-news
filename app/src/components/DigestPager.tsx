@@ -12,6 +12,7 @@ import { PressableScale } from 'react-native-pressable-scale';
 import { DigestPage, type DigestPageHandle } from './DigestPage';
 import PulseIcon from './Icon';
 import PinnedHeaderBar from './PinnedHeaderBar';
+import CalendarModal from './CalendarModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes';
 import { isoDateAtDayIndex, formatLongDate } from '../data';
@@ -133,6 +134,7 @@ const DayHeader = React.memo(function DayHeader({
   theme,
   aes,
   onSetDay,
+  onOpenCalendar,
   topInset,
 }: {
   dayIndex: number;
@@ -142,6 +144,7 @@ const DayHeader = React.memo(function DayHeader({
   theme: Theme;
   aes: Aesthetic;
   onSetDay: (n: number) => void;
+  onOpenCalendar: () => void;
   topInset: number;
 }) {
   const isToday = dayIndex === 0;
@@ -185,17 +188,23 @@ const DayHeader = React.memo(function DayHeader({
             {isToday ? 'Today' : `${dayIndex} ${dayIndex === 1 ? 'day' : 'days'} ago`}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 28 }}>
-            <Text
-              style={{
-                fontFamily: font(aes, 'title', 600),
-                fontSize: 18,
-                lineHeight: 18,
-                letterSpacing: -0.2,
-                color: theme.text,
-              }}
+            <PressableScale
+              onPress={onOpenCalendar}
+              accessibilityLabel="Pick a day"
+              activeScale={0.95}
             >
-              {fmt.wd}, {fmt.mo} {fmt.day}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: font(aes, 'title', 600),
+                  fontSize: 18,
+                  lineHeight: 18,
+                  letterSpacing: -0.2,
+                  color: theme.text,
+                }}
+              >
+                {fmt.wd}, {fmt.mo} {fmt.day}
+              </Text>
+            </PressableScale>
             {!isToday && (
               <PressableScale
                 onPress={() => onSetDay(0)}
@@ -326,6 +335,10 @@ export default React.memo(function DigestPager({
   const onJump = useCallback(() => activePageRef.current?.openJumpModal(), [activePageRef]);
   const onOpenSettings = useCallback(() => setScreen('settings'), [setScreen]);
 
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const onOpenCalendar = useCallback(() => setCalendarOpen(true), []);
+  const onCloseCalendar = useCallback(() => setCalendarOpen(false), []);
+
   const canJump = selectedRegions.length + (showGlobalHeadlines ? 1 : 0) > 1;
 
   return (
@@ -359,6 +372,7 @@ export default React.memo(function DigestPager({
                 theme={theme}
                 aes={aes}
                 onSetDay={setDayIndex}
+                onOpenCalendar={onOpenCalendar}
                 topInset={headerHeight}
               />
               <View style={{ flex: 1 }}>
@@ -392,6 +406,15 @@ export default React.memo(function DigestPager({
         onJump={onJump}
         onOpenSettings={onOpenSettings}
         onHeightChange={onHeaderHeight}
+      />
+
+      <CalendarModal
+        open={calendarOpen}
+        onClose={onCloseCalendar}
+        todayISO={todayISO}
+        maxDayIndex={maxDayIndex}
+        selectedDayIndex={dayIndex}
+        onSelectDay={setDayIndex}
       />
     </View>
   );

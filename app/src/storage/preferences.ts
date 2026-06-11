@@ -16,6 +16,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   openLinksIn: 'in-app',
   regionStyle: 'flag',
   imagesEnabled: true,
+  showSummaries: true,
   photoCount: 2,
   baseCurrency: 'USD',
   showCurrencyRates: false,
