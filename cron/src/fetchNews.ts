@@ -54,6 +54,20 @@ const RESPONSE_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * Extracts the bare domains from curated source labels like "Telex (telex.hu)".
+ * Entries without a parenthesised domain are skipped — they cannot be expressed
+ * as a `search_domain_filter` entry.
+ */
+export function domainsFromSources(sources: string[]): string[] {
+  const out: string[] = [];
+  for (const s of sources) {
+    const m = /\(([a-z0-9.-]+\.[a-z]{2,})(?:\/[^)]*)?\)/i.exec(s);
+    if (m?.[1]) out.push(m[1].toLowerCase());
+  }
+  return [...new Set(out)];
+}
+
 export class PerplexitySource implements DigestSource {
   private readonly apiKey: string;
   private readonly config: PulseConfig;
@@ -71,8 +85,14 @@ export class PerplexitySource implements DigestSource {
     sources: string[],
     count: number,
     recency: 'hour' | 'day' | 'week' | 'month' | 'year',
+    round: number,
   ) {
     const m = this.config.model;
+    // Early rounds restrict search to the curated outlets (hard allowlist —
+    // the prompt hint alone is routinely ignored); later rounds open up so a
+    // quiet news day can still fill the digest.
+    const domains =
+      round < this.config.api.fetch.domainFilterRounds ? domainsFromSources(sources) : [];
     return {
       model: m.name,
       messages: [
@@ -89,6 +109,7 @@ export class PerplexitySource implements DigestSource {
       temperature: m.temperature,
       language_preference: 'en',
       search_recency_filter: recency,
+      ...(domains.length > 0 ? { search_domain_filter: domains } : {}),
       web_search_options: {
         search_context_size: m.searchContextSize,
         search_type: m.searchType,
@@ -198,7 +219,7 @@ export class PerplexitySource implements DigestSource {
 
       const requestCount = remaining + fetchBuffer;
       const body = await this.callPerplexity(
-        this.buildPayload(region, country, sources, requestCount, recency),
+        this.buildPayload(region, country, sources, requestCount, recency, i),
         logger,
       );
       logBody(body, recency);
