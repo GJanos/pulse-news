@@ -43,7 +43,7 @@ async function main() {
   await sendNotifications(digests);
 
   if (config.log.qualityLog) {
-    const log = buildRunLog(config, resolvedRegions, digests, startTime);
+    const log = buildRunLog(config, resolvedRegions, digests, errors, startTime);
     const logPath = writeRunLog(log, resolvedRegions);
     logger.info(`Quality log → ${logPath}`);
   }

@@ -51,7 +51,7 @@ describe('buildRunConfig', () => {
 describe('buildRunLog', () => {
   it('aggregates token and cost totals across digests', () => {
     const digests = [makeDigest(), makeDigest({ region: 'United States' })];
-    const log = buildRunLog(defaultConfig, regions, digests, Date.now() - 1000);
+    const log = buildRunLog(defaultConfig, regions, digests, [], Date.now() - 1000);
 
     expect(log.totals.promptTokens).toBe(200);
     expect(log.totals.completionTokens).toBe(100);
@@ -69,34 +69,34 @@ describe('buildRunLog', () => {
         ],
       }),
     ];
-    const log = buildRunLog(defaultConfig, regions, digests, Date.now());
+    const log = buildRunLog(defaultConfig, regions, digests, [], Date.now());
     expect(log.totals.headlinesFetched).toBe(3);
   });
 
   it('computes headlinesRequested as regions * config.api.fetch.count', () => {
-    const log = buildRunLog(defaultConfig, regions, [], Date.now());
+    const log = buildRunLog(defaultConfig, regions, [], [], Date.now());
     expect(log.totals.headlinesRequested).toBe(regions.length * defaultConfig.api.fetch.count);
   });
 
   it('includes region names from resolvedRegions', () => {
-    const log = buildRunLog(defaultConfig, regions, [], Date.now());
+    const log = buildRunLog(defaultConfig, regions, [], [], Date.now());
     expect(log.regions).toEqual(['Hungary', 'United States']);
   });
 
   it('sets runAt to an ISO string', () => {
-    const log = buildRunLog(defaultConfig, regions, [], Date.now());
+    const log = buildRunLog(defaultConfig, regions, [], [], Date.now());
     expect(() => new Date(log.runAt)).not.toThrow();
     expect(log.runAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('durationMs is non-negative', () => {
-    const log = buildRunLog(defaultConfig, regions, [], Date.now() - 500);
+    const log = buildRunLog(defaultConfig, regions, [], [], Date.now() - 500);
     expect(log.totals.durationMs).toBeGreaterThanOrEqual(0);
   });
 
   it('excludes digests without quality from the digests array', () => {
     const digests = [makeDigest({ quality: undefined }), makeDigest({ quality: undefined })];
-    const log = buildRunLog(defaultConfig, regions, digests, Date.now());
+    const log = buildRunLog(defaultConfig, regions, digests, [], Date.now());
     expect(log.digests).toHaveLength(0);
   });
 });

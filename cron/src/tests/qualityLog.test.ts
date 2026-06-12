@@ -50,6 +50,7 @@ describe('appendRunLog', () => {
     runConfig: baseRunConfig,
     regions: ['GB'],
     digests: [],
+    failedRegions: [],
     totals: {
       promptTokens: 100,
       completionTokens: 50,

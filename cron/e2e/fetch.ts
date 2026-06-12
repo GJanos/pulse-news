@@ -54,7 +54,7 @@ async function main() {
   }
 
   if (config.log.qualityLog) {
-    const runLog = buildRunLog(config, resolvedRegions, digests, startTime);
+    const runLog = buildRunLog(config, resolvedRegions, digests, errors, startTime);
     const logPath = writeRunLog(runLog, resolvedRegions);
     log.info(`Quality log → ${logPath}`);
   }
