@@ -2,11 +2,9 @@ name: Notify
 
 # Scheduled Actions caveats:
 # - GitHub fires `schedule` best-effort; delays of 5–15+ minutes are normal.
-#   The guard derives the half-hour window from the *actual* run time and
-#   passes it to the job (NOTIFY_WINDOW_START/END), so a delay that crosses a
-#   half-hour boundary skips that window's devices — they simply miss that
-#   day's ping. Acceptable for now; revisit if reports accumulate (e.g. derive
-#   the window from the scheduled time instead).
+#   The guard snaps "now" to the last 30-min boundary before computing the
+#   window, so a run delayed by a few minutes still covers the correct slot.
+#   A 10:03 actual run produces window [09:30, 10:00) — same as on-time.
 # - GitHub disables schedules after 60 days without repo activity.
 # - Cost (private repo): each job bills a minimum of 1 minute, so 48 runs/day
 #   is a ~1,440 min/month floor against the 2,000 free minutes. The guard step
@@ -34,10 +32,10 @@ jobs:
     steps:
       # Most half-hour windows contain no devices. Ask Supabase REST first
       # (no checkout/install needed) and skip the heavy steps when empty.
-      # The window it computes ([now − 30 min, now), HH:MM:00 UTC) is exported
-      # as outputs and consumed by jobs/notify.ts via NOTIFY_WINDOW_START/END,
-      # so the guard and the job always query the same window. Fails OPEN:
-      # any guard error runs the job (which then computes its own window).
+      # "now" is snapped to the last 30-min boundary so a delayed run still
+      # covers the correct window. The window ([now − 30 min, now), HH:MM:00
+      # UTC) is exported as outputs consumed by jobs/notify.ts via
+      # NOTIFY_WINDOW_START/END. Fails OPEN: any guard error runs the job.
       - name: Check window for devices
         id: guard
         env:
@@ -47,8 +45,9 @@ jobs:
           node -e '
             const pad = (n) => String(n).padStart(2, "0");
             const fmt = (d) => `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:00`;
-            const now = new Date();
-            const start = fmt(new Date(now.getTime() - 30 * 60 * 1000));
+            const HALF_HOUR_MS = 30 * 60 * 1000;
+            const now = new Date(Math.floor(Date.now() / HALF_HOUR_MS) * HALF_HOUR_MS);
+            const start = fmt(new Date(now.getTime() - HALF_HOUR_MS));
             const end = fmt(now);
             const url = `${process.env.SUPABASE_URL}/rest/v1/devices` +
               `?select=fcm_token&notify_at=not.is.null&notify_at=gte.${start}&notify_at=lt.${end}&limit=1`;
