@@ -28,7 +28,10 @@ export function shouldBlockSettingsEntry(
   lastDaySettleAtMs: number,
   cooldownMs: number = SETTINGS_ENTRY_COOLDOWN_MS,
 ): boolean {
-  return nowMs - lastDaySettleAtMs < cooldownMs;
+  const elapsed = nowMs - lastDaySettleAtMs;
+  // A backward clock jump makes elapsed negative; treat the cooldown as
+  // expired rather than blocking until the clock catches back up.
+  return elapsed >= 0 && elapsed < cooldownMs;
 }
 
 /**

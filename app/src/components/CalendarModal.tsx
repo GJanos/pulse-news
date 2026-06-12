@@ -36,7 +36,10 @@ export default function CalendarModal({
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
 
   const [monthISO, setMonthISO] = useState(todayISO);
-  // Re-anchor to the current month each time the sheet opens.
+  // Re-anchor to the current month each time the sheet opens. Setting state
+  // during render looks alarming but is the React-documented "adjusting state
+  // when a prop changes" pattern (guarded, own state): React restarts the
+  // render before commit, which beats a useEffect's flash of the stale month.
   const [lastOpen, setLastOpen] = useState(open);
   if (open !== lastOpen) {
     setLastOpen(open);

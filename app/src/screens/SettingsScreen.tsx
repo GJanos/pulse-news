@@ -54,12 +54,22 @@ export default function SettingsScreen({
     },
     [],
   );
+  const clearing = useRef(false);
   const clearImageCache = (): void => {
-    void Promise.all([ExpoImage.clearDiskCache(), ExpoImage.clearMemoryCache()]).then(() => {
-      setCacheCleared(true);
-      if (clearTimer.current) clearTimeout(clearTimer.current);
-      clearTimer.current = setTimeout(() => setCacheCleared(false), 2000);
-    });
+    if (clearing.current) return;
+    clearing.current = true;
+    Promise.all([ExpoImage.clearDiskCache(), ExpoImage.clearMemoryCache()])
+      .then(() => {
+        setCacheCleared(true);
+        if (clearTimer.current) clearTimeout(clearTimer.current);
+        clearTimer.current = setTimeout(() => setCacheCleared(false), 2000);
+      })
+      .catch(() => {
+        Alert.alert('Could not clear cache', 'Please try again.');
+      })
+      .finally(() => {
+        clearing.current = false;
+      });
   };
 
   const confirmDelete = (): void => {

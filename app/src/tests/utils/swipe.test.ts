@@ -56,6 +56,10 @@ describe('shouldBlockSettingsEntry', () => {
     expect(shouldBlockSettingsEntry(1000, 900, 200)).toBe(true);
     expect(shouldBlockSettingsEntry(1000, 700, 200)).toBe(false);
   });
+
+  it('allows entry when the clock jumped backwards past the settle time', () => {
+    expect(shouldBlockSettingsEntry(1000, 31000)).toBe(false);
+  });
 });
 
 describe('resolveReaderBack', () => {
