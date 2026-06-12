@@ -22,6 +22,7 @@ export interface RunLog {
   runConfig: RunConfig;
   regions: string[];
   digests: DigestQuality[];
+  failedRegions: string[];
   totals: {
     promptTokens: number;
     completionTokens: number;

@@ -37,27 +37,43 @@ export async function upsertDevice({ deviceId, fcmToken }: UpsertParams): Promis
 }
 
 /**
- * Associate this device with the authenticated user. No-op when unconfigured.
- * `.select()` lets us detect a zero-row update — i.e. the device row does not
- * exist yet (a prior upsert failed) — and warn instead of logging false success.
+ * Associate this device with the authenticated user. Retries up to 3 times on a
+ * 0-row result (the device row may not yet exist on first install if upsertDevice
+ * is still in-flight when the auth event fires). Gives up immediately on a DB error.
+ * No-op when unconfigured.
  */
 export async function linkDeviceToUser(deviceId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
-  const { data, error } = await supabase
-    .from('devices')
-    .update({ user_id: userId })
-    .eq('id', deviceId)
-    .select('id');
-  if (error) {
-    log.warn(`linkDeviceToUser failed: ${error.message}`);
-  } else if (!data || data.length === 0) {
-    log.warn(
-      `linkDeviceToUser: no device row for ${deviceId.slice(0, 8)}… — not linked (device may not have registered yet)`,
-    );
-  } else {
-    log.info(`device ${deviceId.slice(0, 8)}… linked to user ${userId.slice(0, 8)}…`);
+
+  const MAX_ATTEMPTS = 3;
+  const RETRY_DELAY_MS = 2000;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { data, error } = await supabase
+      .from('devices')
+      .update({ user_id: userId })
+      .eq('id', deviceId)
+      .select('id');
+
+    if (error) {
+      log.warn(`linkDeviceToUser failed: ${error.message}`);
+      return;
+    }
+    if (data && data.length > 0) {
+      log.info(`device ${deviceId.slice(0, 8)}… linked to user ${userId.slice(0, 8)}…`);
+      return;
+    }
+    if (attempt < MAX_ATTEMPTS) {
+      log.debug(
+        `linkDeviceToUser: 0-row update (attempt ${attempt}/${MAX_ATTEMPTS}) — device row not yet present, retrying in ${RETRY_DELAY_MS}ms`,
+      );
+      await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    }
   }
+  log.warn(
+    `linkDeviceToUser: no device row for ${deviceId.slice(0, 8)}… after ${MAX_ATTEMPTS} attempts — not linked (device may not have registered yet)`,
+  );
 }
 
 /**

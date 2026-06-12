@@ -101,10 +101,52 @@ describe('linkDeviceToUser', () => {
   });
 
   it('resolves without throwing when no device row matches (0 rows updated)', async () => {
+    jest.useFakeTimers();
     const client = makeClient();
     client.select.mockResolvedValue({ data: [], error: null });
     mockGetSupabase.mockReturnValue(client as never);
-    await expect(linkDeviceToUser('dev-1', 'user-9')).resolves.toBeUndefined();
+    const promise = linkDeviceToUser('dev-1', 'user-9');
+    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(2000);
+    await promise;
+    jest.useRealTimers();
+  });
+
+  it('retries up to 3 times on 0-row, succeeding on the last attempt', async () => {
+    jest.useFakeTimers();
+    const client = makeClient();
+    client.select
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValue({ data: [{ id: 'dev-1' }], error: null });
+    mockGetSupabase.mockReturnValue(client as never);
+    const promise = linkDeviceToUser('dev-1', 'user-9');
+    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(2000);
+    await promise;
+    expect(client.select).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
+  });
+
+  it('stops after 3 attempts when device row never appears', async () => {
+    jest.useFakeTimers();
+    const client = makeClient();
+    client.select.mockResolvedValue({ data: [], error: null });
+    mockGetSupabase.mockReturnValue(client as never);
+    const promise = linkDeviceToUser('dev-1', 'user-9');
+    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(2000);
+    await promise;
+    expect(client.select).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
+  });
+
+  it('does not retry on a Supabase error — exits immediately', async () => {
+    const client = makeClient();
+    client.select.mockResolvedValue({ data: null, error: { message: 'denied' } });
+    mockGetSupabase.mockReturnValue(client as never);
+    await linkDeviceToUser('dev-1', 'user-9');
+    expect(client.select).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -31,6 +31,7 @@ export function buildRunLog(
   config: PulseConfig,
   resolvedRegions: RegionConfig[],
   digests: RegionDigest[],
+  errors: Array<{ region: string; reason: unknown }>,
   startTime: number,
 ): RunLog {
   const runConfig = buildRunConfig(config);
@@ -39,6 +40,7 @@ export function buildRunLog(
     runConfig,
     regions: resolvedRegions.map((r) => r.region),
     digests: digests.flatMap((d) => (d.quality ? [d.quality] : [])),
+    failedRegions: errors.map((e) => e.region),
     totals: {
       promptTokens: digests.reduce((sum, d) => sum + (d.usage?.promptTokens ?? 0), 0),
       completionTokens: digests.reduce((sum, d) => sum + (d.usage?.completionTokens ?? 0), 0),

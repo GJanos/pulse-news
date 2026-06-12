@@ -72,7 +72,7 @@ async function main(): Promise<void> {
     log.info(`Done — ${digests.length}/${resolvedRegions.length} regions, ${totalTokens} tokens`);
 
     if (config.log.qualityLog) {
-      const runLog = buildRunLog(config, resolvedRegions, digests, startTime);
+      const runLog = buildRunLog(config, resolvedRegions, digests, errors, startTime);
 
       const logPath = writeRunLog(runLog, resolvedRegions);
 
