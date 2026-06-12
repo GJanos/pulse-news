@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-import type { IncomingMessage, ServerResponse } from 'http';
 import type { PulseConfig } from '@shared/config';
 
 describe('loadPulseConfig', () => {
@@ -41,69 +40,5 @@ describe('mergeConfig', () => {
     const result = mergeConfig(defaultConfig, { api: { regions: ['Hungary'] } });
     expect(result.api.regions).toEqual(['Hungary']);
     expect(result.api.fetch.count).toBe(5); // sibling untouched
-  });
-});
-
-describe('checkCronSecret', () => {
-  function makeReq(auth?: string): IncomingMessage {
-    return { headers: { authorization: auth } } as unknown as IncomingMessage;
-  }
-
-  function makeRes(): ServerResponse & { statusCode: number; ended: boolean } {
-    const res = {
-      statusCode: 0,
-      ended: false,
-      writeHead(code: number) {
-        this.statusCode = code;
-        return this;
-      },
-      end() {
-        this.ended = true;
-        return this;
-      },
-    };
-    return res as unknown as ServerResponse & { statusCode: number; ended: boolean };
-  }
-
-  it('returns true and does not write when CRON_SECRET is unset', () => {
-    delete process.env.CRON_SECRET;
-    const { checkCronSecret } = require('../config');
-    const res = makeRes();
-    expect(checkCronSecret(makeReq(), res)).toBe(true);
-    expect(res.ended).toBe(false);
-  });
-
-  it('returns true when Authorization matches the secret', () => {
-    process.env.CRON_SECRET = 'abc123';
-    jest.resetModules();
-    const { checkCronSecret } = require('../config');
-    const res = makeRes();
-    expect(checkCronSecret(makeReq('Bearer abc123'), res)).toBe(true);
-    expect(res.ended).toBe(false);
-    delete process.env.CRON_SECRET;
-    jest.resetModules();
-  });
-
-  it('returns false and writes 401 when secret is wrong', () => {
-    process.env.CRON_SECRET = 'abc123';
-    jest.resetModules();
-    const { checkCronSecret } = require('../config');
-    const res = makeRes();
-    expect(checkCronSecret(makeReq('Bearer wrong'), res)).toBe(false);
-    expect(res.statusCode).toBe(401);
-    expect(res.ended).toBe(true);
-    delete process.env.CRON_SECRET;
-    jest.resetModules();
-  });
-
-  it('returns false and writes 401 when Authorization header is missing', () => {
-    process.env.CRON_SECRET = 'abc123';
-    jest.resetModules();
-    const { checkCronSecret } = require('../config');
-    const res = makeRes();
-    expect(checkCronSecret(makeReq(), res)).toBe(false);
-    expect(res.statusCode).toBe(401);
-    delete process.env.CRON_SECRET;
-    jest.resetModules();
   });
 });

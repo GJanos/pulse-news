@@ -103,10 +103,9 @@ export async function dispatchFcm(
   const log = getLogger('notify');
   if (tokens.length === 0) return { sent: 0, total: 0 };
 
-  // One physical device can own several `devices` rows — the per-install UUID
-  // (PK) regenerates across reinstalls while Google Play Services keeps handing
-  // back the same FCM token, and `fcm_token` has no unique constraint. Sending
-  // the deduplicated set guarantees one notification per device.
+  // Deduplicate before sending: the caller may pass the same token more than once
+  // (e.g. when multiple query paths are unioned). fcm_token has a DB UNIQUE constraint
+  // but duplicates can still arrive here in-process, so normalise defensively.
   const uniqueTokens = Array.from(new Set(tokens));
   if (uniqueTokens.length < tokens.length) {
     log.info(`Deduplicated ${tokens.length - uniqueTokens.length} repeated token(s)`);

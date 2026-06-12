@@ -8,7 +8,11 @@ export function snapToHalfHour(utcMinutes: number): string {
 
 /** Convert a local "HH:MM" string to a UTC "HH:MM" string, snapped to the nearest 30-min boundary. */
 export function localTimeToUTC(hhmm: string): string {
-  if (!/^\d{2}:\d{2}$/.test(hhmm)) return '07:00';
+  if (!/^\d{2}:\d{2}$/.test(hhmm)) {
+    // eslint-disable-next-line no-console
+    console.warn(`localTimeToUTC: unexpected format "${hhmm}", defaulting to 07:00`);
+    return '07:00';
+  }
   const parts = hhmm.split(':');
   const h = Number(parts[0] ?? 0);
   const m = Number(parts[1] ?? 0);

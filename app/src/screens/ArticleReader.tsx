@@ -192,6 +192,15 @@ export default function ArticleReader({ url, onClose }: Props): React.ReactEleme
         <WebView
           ref={webViewRef}
           source={{ uri: url }}
+          originWhitelist={['https://*', 'http://*']}
+          onShouldStartLoadWithRequest={(request) => {
+            try {
+              const proto = new URL(request.url).protocol;
+              return proto === 'https:' || proto === 'http:';
+            } catch {
+              return false;
+            }
+          }}
           onLoadEnd={() => setLoading(false)}
           onError={() => {
             setLoading(false);
