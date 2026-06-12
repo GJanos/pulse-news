@@ -1,4 +1,3 @@
-import type { IncomingMessage, ServerResponse } from 'http';
 import fs from 'fs';
 import path from 'path';
 import type { PulseConfig } from '@shared/config';
@@ -134,15 +133,4 @@ export function createSource(config: PulseConfig): DigestSource {
   const logger = getLogger('config');
   logger.debug(`initializing source for ${config.api.regions.length} regions`);
   return new PerplexitySource(config);
-}
-
-// ── Vercel auth ───────────────────────────────────────────────────────────────
-
-export function checkCronSecret(req: IncomingMessage, res: ServerResponse): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
-    res.writeHead(401).end('Unauthorized');
-    return false;
-  }
-  return true;
 }

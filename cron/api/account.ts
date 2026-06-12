@@ -85,7 +85,7 @@ async function handleRegister(
   if (error) {
     log.error(`Device registration failed for ${userId}: ${error.message}`);
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: false, error: error.message }));
+    res.end(JSON.stringify({ ok: false, error: 'Registration failed' }));
     return;
   }
 
@@ -109,7 +109,7 @@ async function handleDelete(
   if (error) {
     log.error(`Failed to delete user ${userId}: ${error.message}`);
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: false, error: error.message }));
+    res.end(JSON.stringify({ ok: false, error: 'Account deletion failed' }));
     return;
   }
 
@@ -120,10 +120,21 @@ async function handleDelete(
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+const MAX_BODY_BYTES = 64 * 1024;
+
 function readBody<T>(req: IncomingMessage): Promise<T | null> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    let totalBytes = 0;
+    req.on('data', (chunk: Buffer) => {
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        resolve(null);
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')) as T);
