@@ -66,16 +66,16 @@ describe('upsertDevice', () => {
     expect('p_notify_at' in args).toBe(false);
   });
 
-  it('no-ops when Supabase is unconfigured', async () => {
+  it('returns false when Supabase is unconfigured', async () => {
     mockGetSupabase.mockReturnValue(null);
-    await expect(upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1' })).resolves.toBeUndefined();
+    await expect(upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1' })).resolves.toBe(false);
   });
 
-  it('resolves without throwing when the RPC returns an error', async () => {
+  it('returns false and does not throw when the RPC returns an error', async () => {
     const client = makeClient();
     client.rpc.mockResolvedValue({ error: { message: 'boom' } });
     mockGetSupabase.mockReturnValue(client as never);
-    await expect(upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1' })).resolves.toBeUndefined();
+    await expect(upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1' })).resolves.toBe(false);
   });
 });
 

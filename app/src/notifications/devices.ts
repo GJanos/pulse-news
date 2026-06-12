@@ -21,19 +21,23 @@ interface UpsertParams {
  * registration must never clobber it. p_user_id is likewise omitted — linkDeviceToUser
  * stamps the auth link after login.
  */
-export async function upsertDevice({ deviceId, fcmToken }: UpsertParams): Promise<void> {
+export async function upsertDevice({ deviceId, fcmToken }: UpsertParams): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) {
     log.debug('upsertDevice skipped — Supabase not configured');
-    return;
+    return false;
   }
   log.info(`registering device ${deviceId.slice(0, 8)}…`);
   const { error } = await supabase.rpc('register_device', {
     p_id: deviceId,
     p_token: fcmToken,
   });
-  if (error) log.warn(`upsertDevice failed: ${error.message}`);
-  else log.debug(`device ${deviceId.slice(0, 8)}… registered successfully`);
+  if (error) {
+    log.warn(`upsertDevice failed: ${error.message}`);
+    return false;
+  }
+  log.debug(`device ${deviceId.slice(0, 8)}… registered successfully`);
+  return true;
 }
 
 /**

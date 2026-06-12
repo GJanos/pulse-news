@@ -33,7 +33,7 @@ export async function callPerplexity(
     if (res.ok) return res.json() as Promise<PerplexityCompletion>;
     const errBody = await res.text().catch(() => '(unreadable)');
     if ((res.status === 429 || res.status >= 500) && attempt < maxAttempts) {
-      const delayMs = attempt * 2000;
+      const delayMs = 2000 * Math.pow(2, attempt - 1);
       log.warn(
         `Perplexity ${res.status} — retrying in ${delayMs / 1000}s (attempt ${attempt}/${maxAttempts})`,
       );

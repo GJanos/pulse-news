@@ -121,11 +121,15 @@ export default function ArticleScreen({
   }, [headline.url]);
 
   const copyLink = (): void => {
-    void Clipboard.setStringAsync(headline.url).then(() => {
-      setCopied(true);
-      if (copyTimer.current) clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), 1500);
-    });
+    void Clipboard.setStringAsync(headline.url)
+      .then(() => {
+        setCopied(true);
+        if (copyTimer.current) clearTimeout(copyTimer.current);
+        copyTimer.current = setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        // clipboard unavailable on this device — silent failure is acceptable
+      });
   };
 
   return (

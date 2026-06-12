@@ -95,12 +95,12 @@ export async function deleteAccount(): Promise<string | null> {
     return error.message;
   }
   log.info('account deleted — wiping local data');
+  await signOut();
   try {
     storage.clearAll();
   } catch (e) {
     log.warn(`storage.clearAll failed: ${String(e)}`);
   }
-  await signOut();
   return null;
 }
 
@@ -111,7 +111,10 @@ export function handleAuthStateChange(event: string, session: Session | null): v
     const { appState } = useAppStore.getState();
     if (appState === 'unauthenticated') setAppState('prefs-loading');
   }
-  if (event === 'SIGNED_OUT') setAppState('unauthenticated');
+  if (event === 'SIGNED_OUT') {
+    setAppState('unauthenticated');
+    useAppStore.getState().setIsPasswordRecovery(false);
+  }
   if (event === 'PASSWORD_RECOVERY') useAppStore.getState().setIsPasswordRecovery(true);
   if (event === 'TOKEN_REFRESHED') log.debug('access token refreshed silently');
 }

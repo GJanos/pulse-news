@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { View, Text, Pressable, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { THEMES, AESTHETICS, font } from '../themes';
 import { useDigestPageData } from '../hooks/useDigestPageData';
@@ -51,6 +51,14 @@ export const DigestPage = React.memo(
     } = useDigestPageData(date, isToday, currencyRatesEnabled);
 
     const flatRef = useRef<FlatList<ListItem> | null>(null);
+    const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(
+      () => () => {
+        if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+      },
+      [],
+    );
     const { listData, indexMapRef } = useJumpTargets(visible, visibleGlobalHeadlines, hasGlobal);
 
     const [refreshing, setRefreshing] = useState(false);
@@ -68,7 +76,7 @@ export const DigestPage = React.memo(
           offset: info.averageItemLength * info.index,
           animated: false,
         });
-        setTimeout(() => {
+        scrollTimerRef.current = setTimeout(() => {
           flatRef.current?.scrollToIndex({ index: info.index, animated: true });
         }, 100);
       },

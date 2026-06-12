@@ -61,14 +61,17 @@ export function useDeepLinkRecovery(
         if (!mounted || requestId !== requestIdRef.current) return;
         if (error) log.warn(`exchangeCodeForSession failed: ${error.message}`);
       } else {
-        if (payload.isRecovery) onRecoveryStart();
         log.info('recovery tokens received (implicit) — setting session');
         const { error } = await supabase.auth.setSession({
           access_token: payload.accessToken,
           refresh_token: payload.refreshToken,
         });
         if (!mounted || requestId !== requestIdRef.current) return;
-        if (error) log.warn(`setSession failed: ${error.message}`);
+        if (error) {
+          log.warn(`setSession failed: ${error.message}`);
+        } else if (payload.isRecovery) {
+          onRecoveryStart();
+        }
       }
     };
 
