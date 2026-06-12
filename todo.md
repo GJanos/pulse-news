@@ -2,46 +2,6 @@
 
 ## V1
 
-> 2026-06-11: the items below landed on the `fable` integration branch (PRs #33–#38);
-> grouping/evaluation in `docs/superpowers/plans/2026-06-11-fable-todo-groups.md`.
-> Merge `fable` → `develop` when the on-device check passes.
-
-### Open
-
-- Left-hand / small-hand ergonomics — assessment with ranked candidates in `docs/ux/left-hand-ergonomics.md`; next step is the bottom-corner back affordance in the reader, after on-device validation
-- Variance oversight (LLM judge that re-runs bad digests) — **deferred**: costly and hard to tune. Deterministic levers shipped first (hard `search_domain_filter`, day-only recency, temperature 0.2). The daily-digest workflow now uploads each run's quality log as an artifact — collect 1–2 weeks and revisit; a cheap deterministic gate (image %, domain-match %) can ride on Phase 2's structured run log
-- Native ads research — from a business perspective, investigate native/sponsored content ads as an alternative to banner ads
-
-### Done (on `fable`)
-
-- ~~"Custom sound 'default' not found" on-device error~~ — channel input treats any string (even `'default'`) as a custom res/raw filename and creates the channel **silent**; fixed by omitting `sound` (= system default). Affected dev installs need app data cleared / reinstall — channel sound is locked after first creation (`fable-review-fixes`)
-
-- ~~Stale today-date after notification open~~ — root cause: `DigestPage` memoized its date on `[dayIndex]` only; fixed with `useTodayISO()` foreground rollover (#34)
-- ~~Sources bad / outdated (Hungary, UK paywalled)~~ — curated sources are now a hard Perplexity `search_domain_filter` allowlist for the first 2 retry rounds (the prompt hint was routinely ignored); Hungary += portfolio.hu, index.hu (#33)
-- ~~Retry days should remain day day day day, not week~~ — recency sequence is day-only (#33)
-- ~~Storage compression~~ — **rejected as compression**: 2 weeks of digest JSON is <1MB in MMKV; the 261MB is the expo-image disk cache of full-res og:images. Shipped Settings → Storage → "Clear image cache" (#38); the durable fix stays Phase 3 (400px WebP in a bucket)
-- ~~Summary toggle~~ — `showSummaries` pref + Settings row (#35)
-- ~~Source name open icon~~ — made functional: opens the original article per `openLinksIn`; also wired on the ArticleScreen hostname row (#35, #36)
-- ~~Image viewer~~ — pinch/pan/double-tap viewer on the article hero; zoom fix: RNGH needs its own root view inside Modal (#35, #36)
-- ~~Calendar day view~~ — month-grid picker on the day-header date, bounded to the history window (#35)
-- ~~Swipe-left accidental settings entry~~ — 600ms cooldown after settling on a day page before a swipe can enter settings (#36)
-- ~~Larger swipe + dead zone~~ — 72px / 0.6 velocity / ±22px article dead zone, centralized in `utils/swipe.ts` (#36)
-- ~~Vercel cron → GitHub Actions~~ — jobs moved to `cron/jobs/`, ts-node runner, explicit exits, quality-log artifact, vercel.json removed (#37)
-
-### Server-side plan
-
-> Refined for hand-off to a brainstorming agent. Phases ordered by dependency:
-> 0→1 are "just do it", 2→3 are understood enhancements, 4 needs real brainstorming.
-
-**Phase 0 — Deploy (unblocks everything else)** _(updated 2026-06-11: scheduled jobs moved to GitHub Actions, PR #37)_
-
-- [x] Scheduled jobs run as GitHub Actions workflows: `daily-digest.yml` (06:00 UTC) and `notify.yml` (every 30 min), executing `cron/jobs/*.ts` via ts-node; `vercel.json` deleted
-- [ ] Set GitHub repo **Actions secrets**: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (literal `\n`), `PERPLEXITY_API_KEY`, `ANTHROPIC_API_KEY` — then trigger each workflow once via `workflow_dispatch` to smoke-test
-- [ ] `/api/account` (server-side device registration) still needs an HTTP host — deploy `cron/` to Vercel for that one route (with `CRON_SECRET` no longer needed), or move it to a Supabase Edge Function; then set `EXPO_PUBLIC_API_URL` in `app/.env`
-  - `cron/index.ts` stays the local test runner (all devices, no time filter)
-- Caveats (documented in the workflows): GH schedules are best-effort (5–15 min delays; a notify delay across a half-hour boundary skips that window) and auto-disable after 60 idle days
-- _Open Q: how to smoke-test cron in prod without spamming real devices?_
-
 **Phase 1 — Harden what's deployed**
 
 - [ ] Tighten `devices` table RLS — replace `USING (true)` / `WITH CHECK (true)` with `user_id = auth.uid()`, or make `/api/account` the only writer and lock the table down
@@ -119,10 +79,6 @@ Allowed — but you need a lawful basis. For product analytics (which articles g
 - [ ] **Language / translation** — setting for returned article language; default English (no translation)
   - Cron side: translate the full digest after fetching, store alongside original in Supabase with a `lang` column on the `digests` table
   - Use DeepL (not Claude, not Mistral) — purpose-built for translation, free up to 500k chars/month, better quality than an LLM for most language pairs
-
-- [ ] When clicking currency display data, show a small weekly chart
-
-  > Nice-to-have. Treat as secondary polish after the main digest/notification flow is stable. Implement only if currency data is already available and chart doesn't clutter the screen.
 
 ---
 
