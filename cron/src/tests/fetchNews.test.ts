@@ -1,5 +1,5 @@
 import { loadPulseConfig } from '../config';
-import { PerplexitySource } from '../fetchNews';
+import { PerplexitySource, domainsFromSources } from '../fetchNews';
 import type { DigestRequest } from '../types';
 
 jest.mock('../lib/perplexityClient');
@@ -44,6 +44,114 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockLogger.child.mockReturnValue(mockLogger);
   getLogger.mockReturnValue(mockLogger);
+});
+
+// ---------------------------------------------------------------------------
+// domainsFromSources
+// ---------------------------------------------------------------------------
+
+describe('domainsFromSources', () => {
+  it('extracts bare domains from parenthesised source labels', () => {
+    expect(domainsFromSources(['Telex (telex.hu)', 'HVG (hvg.hu)'])).toEqual([
+      'telex.hu',
+      'hvg.hu',
+    ]);
+  });
+
+  it('strips paths and deduplicates', () => {
+    expect(
+      domainsFromSources([
+        'BBC News (bbc.co.uk/news)',
+        'The Guardian (theguardian.com)',
+        'The Guardian US (theguardian.com)',
+      ]),
+    ).toEqual(['bbc.co.uk', 'theguardian.com']);
+  });
+
+  it('skips entries without a parseable domain', () => {
+    expect(domainsFromSources(['Some Outlet', ''])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// search_domain_filter rounds
+// ---------------------------------------------------------------------------
+
+describe('search_domain_filter', () => {
+  const sources = ['Telex (telex.hu)', 'HVG (hvg.hu)'];
+  const headline = {
+    title: 'Hungary Budget Plan Announced',
+    summary: 'The government announced the budget.',
+    detail: 'Tax changes take effect next April.',
+    url: 'https://telex.hu/gazdasag/budget-2026/',
+    category: 'Economy',
+    source_name: 'Telex',
+  };
+  const searchResult = {
+    title: 'Hungary Budget Plan Announced',
+    url: 'https://telex.hu/gazdasag/budget-2026/',
+    snippet: 'hungary budget plan',
+  };
+
+  it('passes curated domains on rounds below domainFilterRounds', async () => {
+    callPerplexity.mockResolvedValue(makeCompletion([headline], [searchResult]));
+    const config = {
+      ...testConfig,
+      api: {
+        ...testConfig.api,
+        fetch: { ...testConfig.api.fetch, domainFilterRounds: 2 },
+      },
+    };
+    const source = new PerplexitySource(config, 'test-key');
+    await source.fetchDigest({ region: 'Hungary', country: 'HU', sources, count: 1 });
+
+    const payload = callPerplexity.mock.calls[0]![2] as Record<string, unknown>;
+    expect(payload.search_domain_filter).toEqual(['telex.hu', 'hvg.hu']);
+  });
+
+  it('drops the filter once the round reaches domainFilterRounds', async () => {
+    callPerplexity.mockResolvedValue(makeCompletion([], []));
+    const config = {
+      ...testConfig,
+      api: {
+        ...testConfig.api,
+        fetch: { ...testConfig.api.fetch, domainFilterRounds: 1, maxAttempts: 2, minResults: 1 },
+      },
+    };
+    const source = new PerplexitySource(config, 'test-key');
+    await source.fetchDigest({ region: 'Hungary', country: 'HU', sources, count: 1 });
+
+    expect(callPerplexity).toHaveBeenCalledTimes(2);
+    const first = callPerplexity.mock.calls[0]![2] as Record<string, unknown>;
+    const second = callPerplexity.mock.calls[1]![2] as Record<string, unknown>;
+    expect(first.search_domain_filter).toEqual(['telex.hu', 'hvg.hu']);
+    expect(second.search_domain_filter).toBeUndefined();
+  });
+
+  it('omits the filter entirely when domainFilterRounds is 0', async () => {
+    callPerplexity.mockResolvedValue(makeCompletion([headline], [searchResult]));
+    const config = {
+      ...testConfig,
+      api: {
+        ...testConfig.api,
+        fetch: { ...testConfig.api.fetch, domainFilterRounds: 0 },
+      },
+    };
+    const source = new PerplexitySource(config, 'test-key');
+    await source.fetchDigest({ region: 'Hungary', country: 'HU', sources, count: 1 });
+
+    const payload = callPerplexity.mock.calls[0]![2] as Record<string, unknown>;
+    expect(payload.search_domain_filter).toBeUndefined();
+  });
+
+  it('omits the filter when the region has no parseable source domains', async () => {
+    callPerplexity.mockResolvedValue(makeCompletion([headline], [searchResult]));
+    const source = new PerplexitySource(testConfig, 'test-key');
+    await source.fetchDigest({ region: 'Hungary', country: 'HU', sources: [], count: 1 });
+
+    const payload = callPerplexity.mock.calls[0]![2] as Record<string, unknown>;
+    expect(payload.search_domain_filter).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

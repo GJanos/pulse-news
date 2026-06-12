@@ -12,9 +12,12 @@ import { PressableScale } from 'react-native-pressable-scale';
 import { DigestPage, type DigestPageHandle } from './DigestPage';
 import PulseIcon from './Icon';
 import PinnedHeaderBar from './PinnedHeaderBar';
+import CalendarModal from './CalendarModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { THEMES, AESTHETICS, font, type Theme, type Aesthetic } from '../themes';
 import { isoDateAtDayIndex, formatLongDate } from '../data';
+import { shouldBlockSettingsEntry } from '../utils/swipe';
+import { useTodayISO } from '../hooks/useTodayISO';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
@@ -128,20 +131,25 @@ export function useDigestRefreshOnNonce(
 const DayHeader = React.memo(function DayHeader({
   dayIndex,
   maxDayIndex,
+  todayISO,
   theme,
   aes,
   onSetDay,
+  onOpenCalendar,
   topInset,
 }: {
   dayIndex: number;
   maxDayIndex: number;
+  /** Fresh today date — busts the memo when the app foregrounds past midnight. */
+  todayISO: string;
   theme: Theme;
   aes: Aesthetic;
   onSetDay: (n: number) => void;
+  onOpenCalendar: () => void;
   topInset: number;
 }) {
   const isToday = dayIndex === 0;
-  const fmt = formatLongDate(isoDateAtDayIndex(dayIndex));
+  const fmt = formatLongDate(isoDateAtDayIndex(dayIndex, todayISO));
 
   return (
     <View
@@ -181,17 +189,23 @@ const DayHeader = React.memo(function DayHeader({
             {isToday ? 'Today' : `${dayIndex} ${dayIndex === 1 ? 'day' : 'days'} ago`}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 28 }}>
-            <Text
-              style={{
-                fontFamily: font(aes, 'title', 600),
-                fontSize: 18,
-                lineHeight: 18,
-                letterSpacing: -0.2,
-                color: theme.text,
-              }}
+            <PressableScale
+              onPress={onOpenCalendar}
+              accessibilityLabel="Pick a day"
+              activeScale={0.95}
             >
-              {fmt.wd}, {fmt.mo} {fmt.day}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: font(aes, 'title', 600),
+                  fontSize: 18,
+                  lineHeight: 18,
+                  letterSpacing: -0.2,
+                  color: theme.text,
+                }}
+              >
+                {fmt.wd}, {fmt.mo} {fmt.day}
+              </Text>
+            </PressableScale>
             {!isToday && (
               <PressableScale
                 onPress={() => onSetDay(0)}
@@ -259,6 +273,7 @@ export default React.memo(function DigestPager({
 
   const { getSlotSetter, setActivePage } = usePageRefs<DigestPageHandle>(activePageRef);
   useDigestRefreshOnNonce(activePageRef);
+  const todayISO = useTodayISO();
 
   const scrollRef = useRef<GHScrollView>(null);
   // Page the strip is currently settled on. Initialised from the first-render
@@ -300,17 +315,30 @@ export default React.memo(function DigestPager({
     scrollRef.current?.scrollTo({ x: target * W, animated: true });
   }, [screen, dayIndex, maxDayIndex, W]);
 
+  // Timestamp of the last settle on a day page; gates swipe-entry into settings
+  // so an overshooting fling through "today" bounces back instead of landing
+  // in settings. The header settings button bypasses this (store-driven scroll).
+  const lastDaySettleAt = useRef(0);
+
   // When the user settles on a page, reflect it back into the store. Setting
   // currentPage *before* the store write means the sync effect above no-ops.
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const page = Math.round(e.nativeEvent.contentOffset.x / W);
       if (page === currentPage.current) return;
-      currentPage.current = page;
       const target = targetForPage(page, maxDayIndex);
       if (target.kind === 'settings') {
+        if (shouldBlockSettingsEntry(Date.now(), lastDaySettleAt.current)) {
+          const back = pageForDay(dayIndex, maxDayIndex);
+          currentPage.current = back;
+          scrollRef.current?.scrollTo({ x: back * W, animated: true });
+          return;
+        }
+        currentPage.current = page;
         if (screen !== 'settings') setScreen('settings');
       } else {
+        currentPage.current = page;
+        lastDaySettleAt.current = Date.now();
         if (screen !== 'digest') setScreen('digest');
         if (target.dayIndex !== dayIndex) setDayIndex(target.dayIndex);
       }
@@ -320,6 +348,10 @@ export default React.memo(function DigestPager({
 
   const onJump = useCallback(() => activePageRef.current?.openJumpModal(), [activePageRef]);
   const onOpenSettings = useCallback(() => setScreen('settings'), [setScreen]);
+
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const onOpenCalendar = useCallback(() => setCalendarOpen(true), []);
+  const onCloseCalendar = useCallback(() => setCalendarOpen(false), []);
 
   const canJump = selectedRegions.length + (showGlobalHeadlines ? 1 : 0) > 1;
 
@@ -350,9 +382,11 @@ export default React.memo(function DigestPager({
               <DayHeader
                 dayIndex={pageDayIndex}
                 maxDayIndex={maxDayIndex}
+                todayISO={todayISO}
                 theme={theme}
                 aes={aes}
                 onSetDay={setDayIndex}
+                onOpenCalendar={onOpenCalendar}
                 topInset={headerHeight}
               />
               <View style={{ flex: 1 }}>
@@ -386,6 +420,15 @@ export default React.memo(function DigestPager({
         onJump={onJump}
         onOpenSettings={onOpenSettings}
         onHeightChange={onHeaderHeight}
+      />
+
+      <CalendarModal
+        open={calendarOpen}
+        onClose={onCloseCalendar}
+        todayISO={todayISO}
+        maxDayIndex={maxDayIndex}
+        selectedDayIndex={dayIndex}
+        onSelectDay={setDayIndex}
       />
     </View>
   );

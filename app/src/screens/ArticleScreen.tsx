@@ -17,7 +17,8 @@ import { useAppStore } from '../store';
 import PulseIcon from '../components/Icon';
 import Flag from '../components/Flag';
 import { HeadlineImage } from '../components/HeadlineImage';
-import { resolveArticleSwipe } from '../utils/swipe';
+import { ImageViewerModal } from '../components/ImageViewerModal';
+import { resolveArticleSwipe, ARTICLE_ACTIVE_OFFSET_X } from '../utils/swipe';
 import { setEdgeExclusion } from '../../modules/gesture-exclusion';
 import type { Headline, Region } from '../types';
 
@@ -39,6 +40,7 @@ export default function ArticleScreen({
   const insets = useSafeAreaInsets();
   const { width: W } = useWindowDimensions();
   const [copied, setCopied] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Guards onClose so it fires exactly once across the back button + gesture paths.
@@ -80,7 +82,7 @@ export default function ArticleScreen({
   const pan = useMemo(
     () =>
       Gesture.Pan()
-        .activeOffsetX([-15, 15])
+        .activeOffsetX([-ARTICLE_ACTIVE_OFFSET_X, ARTICLE_ACTIVE_OFFSET_X])
         .failOffsetY([-10, 10])
         .onUpdate((e) => {
           // Track the finger 1:1 in the close direction; clamp the open direction at 0.
@@ -177,12 +179,18 @@ export default function ArticleScreen({
           showsVerticalScrollIndicator={false}
         >
           {imagesEnabled && headline.imageUrl ? (
-            <HeadlineImage
-              uri={headline.imageUrl}
-              testID="hero-image"
-              aspectRatio={16 / 9}
-              style={{ width: W, marginHorizontal: -22, marginTop: -22, marginBottom: 20 }}
-            />
+            <Pressable
+              onPress={() => setViewerOpen(true)}
+              accessibilityLabel="View image full size"
+              testID="hero-image-press"
+            >
+              <HeadlineImage
+                uri={headline.imageUrl}
+                testID="hero-image"
+                aspectRatio={16 / 9}
+                style={{ width: W, marginHorizontal: -22, marginTop: -22, marginBottom: 20 }}
+              />
+            </Pressable>
           ) : null}
           <Text
             style={{
@@ -282,7 +290,13 @@ export default function ArticleScreen({
           </Pressable>
 
           <View style={[s.copyRow, { backgroundColor: theme.chip }]}>
-            <View style={s.sourceInfo}>
+            <Pressable
+              onPress={openArticle}
+              hitSlop={8}
+              accessibilityLabel="Open full article"
+              testID="source-link"
+              style={({ pressed }) => [s.sourceInfo, { opacity: pressed ? 0.6 : 1 }]}
+            >
               <Text
                 numberOfLines={1}
                 style={{
@@ -295,7 +309,7 @@ export default function ArticleScreen({
                 {hostname}
               </Text>
               <PulseIcon name="link" size={13} color={theme.accent} strokeWidth={1.8} />
-            </View>
+            </Pressable>
             <Pressable
               onPress={copyLink}
               accessibilityLabel={copied ? 'Link copied' : 'Copy link'}
@@ -344,6 +358,11 @@ export default function ArticleScreen({
             </Text>
           </View>
         </ScrollView>
+
+        <ImageViewerModal
+          uri={viewerOpen ? (headline.imageUrl ?? null) : null}
+          onClose={() => setViewerOpen(false)}
+        />
       </Animated.View>
     </GestureDetector>
   );

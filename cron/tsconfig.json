@@ -9,6 +9,6 @@
       "@shared/*": ["../shared/src/*"]
     }
   },
-  "include": ["src/**/*", "api/**/*", "e2e/**/*"],
+  "include": ["src/**/*", "api/**/*", "jobs/**/*", "e2e/**/*"],
   "exclude": ["node_modules", "dist"]
 }

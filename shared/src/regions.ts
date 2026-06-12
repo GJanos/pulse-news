@@ -27,6 +27,8 @@ export const REGIONS: Region[] = [
       'HVG (hvg.hu)',
       '444 (444.hu)',
       'Hungary Today (hungarytoday.hu)',
+      'Portfolio (portfolio.hu)',
+      'Index (index.hu)',
     ],
   },
   {

@@ -15,9 +15,13 @@ export function getTodayISO(): string {
 /** Today's UTC date as YYYY-MM-DD. Evaluated once at module load; use getTodayISO() if you need it fresh past midnight. */
 export const TODAY_ISO: string = getTodayISO();
 
-/** Returns the UTC ISO date string that is `dayIndex` days before today. */
-export function isoDateAtDayIndex(dayIndex: number): string {
-  const d = new Date(getTodayISO() + 'T00:00:00Z');
+/**
+ * Returns the UTC ISO date string that is `dayIndex` days before `todayISO`.
+ * Pass `useTodayISO()`'s value from components so the result shifts when the
+ * app foregrounds past midnight; the default only evaluates at call time.
+ */
+export function isoDateAtDayIndex(dayIndex: number, todayISO: string = getTodayISO()): string {
+  const d = new Date(todayISO + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() - dayIndex);
   return d.toISOString().slice(0, 10);
 }

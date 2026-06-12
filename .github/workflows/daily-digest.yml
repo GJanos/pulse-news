@@ -1,0 +1,49 @@
+name: Daily Digest
+
+# Scheduled Actions caveats:
+# - GitHub fires `schedule` on a best-effort basis; delays of 5–15+ minutes at
+#   busy times are normal. The digest tolerates this — it just lands later.
+# - GitHub disables schedules after 60 days without repo activity; re-enable
+#   from the Actions tab if pushes pause that long.
+on:
+  schedule:
+    - cron: '0 6 * * *' # 06:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A run can take a while (9 regions × retries); never let two overlap.
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/run-cron-job
+        with:
+          job: jobs/daily-digest.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # The runner's filesystem is gone when the job ends — keep the quality
+      # run log (cron/logs/*.jsonl) as an artifact for the variance analysis.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-log-${{ github.run_id }}
+          path: cron/logs/
+          if-no-files-found: ignore
+          retention-days: 30

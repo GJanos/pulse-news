@@ -100,6 +100,20 @@ describe('RegionSection image treatment', () => {
     expect(queryAllByTestId('thumb-image')).toHaveLength(2);
   });
 
+  it('hides summaries when showSummaries is false', () => {
+    setPrefs({ showSummaries: false });
+    const { queryByText, getByText } = renderSection([h(1, true), h(2, false)]);
+    expect(getByText('Headline 1')).toBeTruthy();
+    expect(queryByText('Summary 1')).toBeNull();
+    expect(queryByText('Summary 2')).toBeNull();
+  });
+
+  it('shows summaries by default', () => {
+    const { getByText } = renderSection([h(1, true), h(2, false)]);
+    expect(getByText('Summary 1')).toBeTruthy();
+    expect(getByText('Summary 2')).toBeTruthy();
+  });
+
   it('renders the lead foot uniform with normal rows: source once + category', () => {
     // The lead card shows the source in the foot (bottom-left) alongside the category
     // (bottom-right), exactly like thumb/text rows — not as a pill overlaid on the image.

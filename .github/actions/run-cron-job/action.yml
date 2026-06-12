@@ -1,0 +1,31 @@
+name: Run cron job
+description: >
+  Set up Node, install cron/ dependencies, and run one cron job script with
+  ts-node. The calling step must run after actions/checkout (a local action
+  cannot be resolved before the repo exists on the runner). Secrets go in
+  `env` on the calling step — they propagate to these steps.
+
+inputs:
+  job:
+    description: Job script path relative to cron/ (e.g. jobs/notify.ts)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
+        cache-dependency-path: cron/package-lock.json
+
+    - run: npm ci
+      shell: bash
+      working-directory: cron
+
+    # ts-node + tsconfig-paths is the repo's established runner (see the e2e
+    # scripts) — it resolves the @shared/* path alias and is pinned in the
+    # lockfile, unlike an ad-hoc `npx tsx`.
+    - run: npx ts-node -r tsconfig-paths/register ${{ inputs.job }}
+      shell: bash
+      working-directory: cron

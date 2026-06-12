@@ -37,6 +37,7 @@ const makeConfig = (enabled = true): PulseConfig => ({
       retryDelay: 3000,
       minResults: 5,
       recencySequence: ['day'],
+      domainFilterRounds: 0,
       buffer: 1,
     },
     ranking: {

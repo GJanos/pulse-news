@@ -44,4 +44,33 @@ describe('notifyWindow', () => {
     expect(start).toBe('12:30:00');
     jest.useRealTimers();
   });
+
+  describe('NOTIFY_WINDOW_START / NOTIFY_WINDOW_END override', () => {
+    afterEach(() => {
+      delete process.env.NOTIFY_WINDOW_START;
+      delete process.env.NOTIFY_WINDOW_END;
+    });
+
+    it('returns the window passed by the Actions guard step', () => {
+      process.env.NOTIFY_WINDOW_START = '08:30:00';
+      process.env.NOTIFY_WINDOW_END = '09:00:00';
+      expect(notifyWindow()).toEqual({ start: '08:30:00', end: '09:00:00' });
+    });
+
+    it('falls back to the computed window on a malformed override', () => {
+      process.env.NOTIFY_WINDOW_START = 'garbage';
+      process.env.NOTIFY_WINDOW_END = '09:00:00';
+      const { start, end } = notifyWindow();
+      expect(start).not.toBe('garbage');
+      expect(start).toMatch(/^\d{2}:\d{2}:00$/);
+      expect(end).toMatch(/^\d{2}:\d{2}:00$/);
+    });
+
+    it('falls back to the computed window on a partial override', () => {
+      process.env.NOTIFY_WINDOW_END = '09:00:00';
+      const { start, end } = notifyWindow();
+      expect(start).toMatch(/^\d{2}:\d{2}:00$/);
+      expect(end).toMatch(/^\d{2}:\d{2}:00$/);
+    });
+  });
 });

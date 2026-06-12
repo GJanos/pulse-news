@@ -1,0 +1,87 @@
+name: Notify
+
+# Scheduled Actions caveats:
+# - GitHub fires `schedule` best-effort; delays of 5–15+ minutes are normal.
+#   The guard derives the half-hour window from the *actual* run time and
+#   passes it to the job (NOTIFY_WINDOW_START/END), so a delay that crosses a
+#   half-hour boundary skips that window's devices — they simply miss that
+#   day's ping. Acceptable for now; revisit if reports accumulate (e.g. derive
+#   the window from the scheduled time instead).
+# - GitHub disables schedules after 60 days without repo activity.
+# - Cost (private repo): each job bills a minimum of 1 minute, so 48 runs/day
+#   is a ~1,440 min/month floor against the 2,000 free minutes. The guard step
+#   below keeps empty-window runs at that floor instead of ~2–3 min of
+#   checkout + npm ci. If the floor itself becomes a problem, the options are:
+#   make the repo public, narrow the schedule to waking hours, or move notify
+#   to a Supabase scheduled Edge Function.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # Most half-hour windows contain no devices. Ask Supabase REST first
+      # (no checkout/install needed) and skip the heavy steps when empty.
+      # The window it computes ([now − 30 min, now), HH:MM:00 UTC) is exported
+      # as outputs and consumed by jobs/notify.ts via NOTIFY_WINDOW_START/END,
+      # so the guard and the job always query the same window. Fails OPEN:
+      # any guard error runs the job (which then computes its own window).
+      - name: Check window for devices
+        id: guard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          node -e '
+            const pad = (n) => String(n).padStart(2, "0");
+            const fmt = (d) => `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:00`;
+            const now = new Date();
+            const start = fmt(new Date(now.getTime() - 30 * 60 * 1000));
+            const end = fmt(now);
+            const url = `${process.env.SUPABASE_URL}/rest/v1/devices` +
+              `?select=fcm_token&notify_at=not.is.null&notify_at=gte.${start}&notify_at=lt.${end}&limit=1`;
+            fetch(url, { headers: {
+              apikey: process.env.SUPABASE_SECRET_KEY,
+              Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`,
+            }})
+              .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+              .then((rows) => {
+                console.log(`window ${start}–${end}: ${rows.length ? "devices found" : "empty"}`);
+                process.stdout.write(`has=${rows.length > 0}\nstart=${start}\nend=${end}\n`);
+              })
+              .catch((e) => {
+                console.log(`guard error (${e.message}) — failing open`);
+                process.stdout.write(`has=true\nstart=${start}\nend=${end}\n`);
+              });
+          ' | tee guard.out
+          grep '^has=' guard.out >> "$GITHUB_OUTPUT" || echo "has=true" >> "$GITHUB_OUTPUT"
+          grep '^start=' guard.out >> "$GITHUB_OUTPUT" || true
+          grep '^end=' guard.out >> "$GITHUB_OUTPUT" || true
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.has == 'true'
+
+      - uses: ./.github/actions/run-cron-job
+        if: steps.guard.outputs.has == 'true'
+        with:
+          job: jobs/notify.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          NOTIFY_WINDOW_START: ${{ steps.guard.outputs.start }}
+          NOTIFY_WINDOW_END: ${{ steps.guard.outputs.end }}

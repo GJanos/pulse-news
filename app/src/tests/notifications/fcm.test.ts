@@ -40,13 +40,22 @@ beforeEach(() => jest.clearAllMocks());
 afterEach(() => Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS }));
 
 describe('ensureDefaultChannel', () => {
-  it('creates a HIGH-importance "default" channel with sound on Android', async () => {
+  it('creates a HIGH-importance "default" channel on Android', async () => {
     setPlatform('android');
     await ensureDefaultChannel();
     expect(setNotificationChannelAsync).toHaveBeenCalledTimes(1);
     const [id, channel] = (setNotificationChannelAsync as jest.Mock).mock.calls[0]!;
     expect(id).toBe(DEFAULT_CHANNEL_ID);
-    expect(channel).toMatchObject({ importance: 4, sound: 'default', enableVibrate: true });
+    expect(channel).toMatchObject({ importance: 4, enableVibrate: true });
+  });
+
+  it('omits the sound key so the channel gets the system default sound', async () => {
+    // Any string here — even 'default' — is treated as a custom res/raw
+    // filename and silently breaks the channel; null would mean silent.
+    setPlatform('android');
+    await ensureDefaultChannel();
+    const [, channel] = (setNotificationChannelAsync as jest.Mock).mock.calls[0]!;
+    expect('sound' in channel).toBe(false);
   });
 
   it('is a no-op off Android', async () => {

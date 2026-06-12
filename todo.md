@@ -2,63 +2,73 @@
 
 ## V1
 
-- swiping motings are too sensitive they should only fire when user swipes not in the middle but towards to the sides at least
-  - Out of scope (later slices): article-reader hero image, global
-    "Top News" images, server-side image caching/proxying.
+> 2026-06-11: the items below landed on the `fable` integration branch (PRs #33–#38);
+> grouping/evaluation in `docs/superpowers/plans/2026-06-11-fable-todo-groups.md`.
+> Merge `fable` → `develop` when the on-device check passes.
 
-- [ ] refactor costs logging in cron. Have normal log lines like before, but they also need to be refactored, but the main thing is I would love for a run to create a large json object of the data being logged in a format that is transmittable via http, but we kind of already have that, just it needs improvements
+### Open
 
-# bugs
+- Left-hand / small-hand ergonomics — assessment with ranked candidates in `docs/ux/left-hand-ergonomics.md`; next step is the bottom-corner back affordance in the reader, after on-device validation
+- Variance oversight (LLM judge that re-runs bad digests) — **deferred**: costly and hard to tune. Deterministic levers shipped first (hard `search_domain_filter`, day-only recency, temperature 0.2). The daily-digest workflow now uploads each run's quality log as an artifact — collect 1–2 weeks and revisit; a cheap deterministic gate (image %, domain-match %) can ride on Phase 2's structured run log
+- Native ads research — from a business perspective, investigate native/sponsored content ads as an alternative to banner ads
 
-Root Cause Analysis: The .5s Lag
-Your observation:
+### Done (on `fable`)
 
-when going dt → d(t-1) → dt → settings, settings sits blank for .5s until interactive
+- ~~"Custom sound 'default' not found" on-device error~~ — channel input treats any string (even `'default'`) as a custom res/raw filename and creates the channel **silent**; fixed by omitting `sound` (= system default). Affected dev installs need app data cleared / reinstall — channel sound is locked after first creation (`fable-review-fixes`)
 
-My Assessment:
+- ~~Stale today-date after notification open~~ — root cause: `DigestPage` memoized its date on `[dayIndex]` only; fixed with `useTodayISO()` foreground rollover (#34)
+- ~~Sources bad / outdated (Hungary, UK paywalled)~~ — curated sources are now a hard Perplexity `search_domain_filter` allowlist for the first 2 retry rounds (the prompt hint was routinely ignored); Hungary += portfolio.hu, index.hu (#33)
+- ~~Retry days should remain day day day day, not week~~ — recency sequence is day-only (#33)
+- ~~Storage compression~~ — **rejected as compression**: 2 weeks of digest JSON is <1MB in MMKV; the 261MB is the expo-image disk cache of full-res og:images. Shipped Settings → Storage → "Clear image cache" (#38); the durable fix stays Phase 3 (400px WebP in a bucket)
+- ~~Summary toggle~~ — `showSummaries` pref + Settings row (#35)
+- ~~Source name open icon~~ — made functional: opens the original article per `openLinksIn`; also wired on the ArticleScreen hostname row (#35, #36)
+- ~~Image viewer~~ — pinch/pan/double-tap viewer on the article hero; zoom fix: RNGH needs its own root view inside Modal (#35, #36)
+- ~~Calendar day view~~ — month-grid picker on the day-header date, bounded to the history window (#35)
+- ~~Swipe-left accidental settings entry~~ — 600ms cooldown after settling on a day page before a swipe can enter settings (#36)
+- ~~Larger swipe + dead zone~~ — 72px / 0.6 velocity / ±22px article dead zone, centralized in `utils/swipe.ts` (#36)
+- ~~Vercel cron → GitHub Actions~~ — jobs moved to `cron/jobs/`, ts-node runner, explicit exits, quality-log artifact, vercel.json removed (#37)
 
-The lag is not caused by:
+### Server-side plan
 
-❌ Settings screen not being mounted (now fixed)
-❌ Reanimated worklet warnings (already fixed)
-❌ ScrollView responsiveness (paging is handled UI-thread side)
-Likely causes:
+> Refined for hand-off to a brainstorming agent. Phases ordered by dependency:
+> 0→1 are "just do it", 2→3 are understood enhancements, 4 needs real brainstorming.
 
-RegionPicker initialization — On first touch, useEffect in RegionPicker re-sorts orderedRegions; React re-renders RegionSection × N regions
-CurrencyPicker first open — Currency picker may do async work (lookup, format) on first interaction
-FlatList computation — listData and indexMapRef in DigestPage are computed on first mount; if many regions/headlines, this JS work blocks the thread
+**Phase 0 — Deploy (unblocks everything else)** _(updated 2026-06-11: scheduled jobs moved to GitHub Actions, PR #37)_
 
-# bugs
+- [x] Scheduled jobs run as GitHub Actions workflows: `daily-digest.yml` (06:00 UTC) and `notify.yml` (every 30 min), executing `cron/jobs/*.ts` via ts-node; `vercel.json` deleted
+- [ ] Set GitHub repo **Actions secrets**: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (literal `\n`), `PERPLEXITY_API_KEY`, `ANTHROPIC_API_KEY` — then trigger each workflow once via `workflow_dispatch` to smoke-test
+- [ ] `/api/account` (server-side device registration) still needs an HTTP host — deploy `cron/` to Vercel for that one route (with `CRON_SECRET` no longer needed), or move it to a Supabase Edge Function; then set `EXPO_PUBLIC_API_URL` in `app/.env`
+  - `cron/index.ts` stays the local test runner (all devices, no time filter)
+- Caveats (documented in the workflows): GH schedules are best-effort (5–15 min delays; a notify delay across a half-hour boundary skips that window) and auto-disable after 60 idle days
+- _Open Q: how to smoke-test cron in prod without spamming real devices?_
 
-LOG 2026-06-06T09:09:45.950Z DEBUG (digests) multiGet: 9/9 cache hits for 2026-06-04
-LOG 2026-06-06T09:09:45.951Z INFO (useGlobalHeadlines) fetching global headlines for 2026-06-04
-LOG 2026-06-06T09:09:45.952Z INFO (digests) loading global headlines for 2026-06-04
-LOG VirtualizedList: You have a large list that is slow to update - make sure your renderItem function renders components that follow React performance best practices like PureComponent, shouldComponentUpdate, etc. {"contentLength": 12446.857421875, "dt": 780, "prevDt": 132991}
+**Phase 1 — Harden what's deployed**
 
-### Bugs
+- [ ] Tighten `devices` table RLS — replace `USING (true)` / `WITH CHECK (true)` with `user_id = auth.uid()`, or make `/api/account` the only writer and lock the table down
+- _Open Q: do clients ever write `devices` directly, or can the route be the sole writer?_
 
-- [ ] Notifications are often missed due to Android issues
+**Phase 2 — Observability: cost logging refactor**
 
-### Deployment
+- [ ] Keep human-readable log lines, but have each cron run emit one structured JSON object of all logged/cost data, shaped for HTTP transmission (~80% there; needs a consistent schema + cleanup)
+- _Open Q: where does the JSON go — route response, Supabase table, or external sink? That drives the schema._
 
-- [ ] **Set `EXPO_PUBLIC_API_URL`** — once Vercel is deployed, add the deployment URL to `app/.env` so `POST /api/account` (server-side device registration) becomes available
-- [ ] **Tighten `devices` table RLS** — current policies use `USING (true)` / `WITH CHECK (true)`, meaning any authenticated user can read/write any device row. Restrict to `user_id = auth.uid()` or move registration through the Vercel `/api/account` route which enforces identity server-side
-- [ ] **Vercel deployment** — deploy the two cron API routes to Vercel:
-  - Vercel project root directory must be set to `cron/` (dashboard → Settings → General → Root Directory)
-  - `vercel.json` at repo root defines the two cron schedules; Vercel reads it from the project root
-  - Required env vars (set in Vercel dashboard → Settings → Environment Variables):
-    - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
-    - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (store private key with literal `\n`, not real newlines)
-    - `PERPLEXITY_API_KEY`
-    - `CRON_SECRET` — any random string; Vercel sends `Authorization: Bearer <CRON_SECRET>` on each cron invocation to prevent unauthorized triggers
-  - Route split:
-    - `GET /api/daily-digest` — fetch + persist + FCM to null-notify_at devices; schedule `0 5 * * *`
-    - `GET /api/notify` — FCM to devices in current 30-min window; schedule `*/30 * * * *`
-  - `cron/index.ts` remains the local test runner (sends to all devices, no time filtering)
+**Phase 3 — Image durability (server-side proxy/cache)**
+
+Client caching (expo-image) is already solved; this is purely source-URL rot.
+
+- [ ] During the pipeline: download each `og:image`, resize (~400px WebP), upload to a Supabase Storage bucket, store the permanent bucket URL in `imageUrl`
+  - Solves URL rot (articles 404 after days), 2–3MB image sizes, hotlink 403s. ~50–100 imgs/day ≈ trivial cost (free tier 1GB)
+- _Open Q: resize/encode in Node cron (sharp) vs. Supabase image transform; plus a backfill + eviction policy alongside existing `db.evict`._
+
+**Phase 4 — Usage statistics collector (new component, research-y)**
+
+- [ ] Component to record usage stats (articles read, time in app) + handle device-registration deletion cleanup
+  - Lawful basis = "legitimate interests" (no consent popup) **if** Privacy Policy discloses it; keep aggregate/pseudonymous (userID + articleID + timestamp)
+- _Open Q: event schema, collection path (app → `/api/...` → Supabase), and retention — the real brainstorm candidate._
 
 ### Deferred / Research
 
-- [ ] Record user usage statistics for metrics and analysis _(see GDPR section under Go Live)_ #referencing the gdpr section
+- [ ] Record user usage statistics for metrics and analysis _(see GDPR section under Go Live; overlaps Phase 4 above)_
 - [ ] Start using bun as a package manager
 
 ---

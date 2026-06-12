@@ -35,6 +35,10 @@ export interface FetchConfig {
   minResults: number;
   recencySequence: Array<'hour' | 'day' | 'week' | 'month' | 'year'>;
   buffer: number;
+  /** Number of leading retry rounds that pass the region's curated source domains
+   *  as a hard `search_domain_filter` allowlist. Later rounds drop the filter so a
+   *  quiet news day can still fill the digest from the open web. 0 disables. */
+  domainFilterRounds: number;
 }
 
 export interface RankingLocalConfig {
