@@ -57,9 +57,7 @@ export async function pullRemotePreferences(userId: string): Promise<UserPrefere
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  // TODO: remove cast when supabase types include user_preferences table
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('user_preferences')
     .select('preferences, updated_at')
     .eq('user_id', userId)
@@ -80,9 +78,7 @@ export async function pushRemotePreferences(userId: string, prefs: UserPreferenc
   const supabase = getSupabase();
   if (!supabase) return;
 
-  // TODO: remove cast when supabase types include user_preferences table
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('user_preferences')
     .upsert(
       { user_id: userId, preferences: prefs, updated_at: prefs.updatedAt },
