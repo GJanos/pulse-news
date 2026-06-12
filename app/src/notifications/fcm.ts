@@ -36,6 +36,13 @@ export const DEFAULT_CHANNEL_ID = 'default';
  * sound), which is the leading cause of "missed" digests. HIGH importance + sound
  * restores the heads-up banner and alert. No-op off Android; idempotent — safe to
  * call on every launch (re-creating an existing channel is a cheap merge).
+ *
+ * `sound` must stay OMITTED: for channels (unlike notification content) any
+ * string — including 'default' — is treated as a custom res/raw filename, so
+ * `sound: 'default'` logs "Custom sound 'default' not found" and creates the
+ * channel SILENT. Omitting the key selects the system default sound; `null`
+ * means silent. Android locks a channel's sound after first creation, so a
+ * device that already created the bad channel needs data cleared / reinstall.
  */
 export async function ensureDefaultChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -43,7 +50,6 @@ export async function ensureDefaultChannel(): Promise<void> {
     await setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
       name: 'Daily digest',
       importance: AndroidImportance.HIGH,
-      sound: 'default',
       enableVibrate: true,
       vibrationPattern: [0, 250, 250, 250],
     });

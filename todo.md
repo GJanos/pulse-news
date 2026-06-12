@@ -14,6 +14,8 @@
 
 ### Done (on `fable`)
 
+- ~~"Custom sound 'default' not found" on-device error~~ — channel input treats any string (even `'default'`) as a custom res/raw filename and creates the channel **silent**; fixed by omitting `sound` (= system default). Affected dev installs need app data cleared / reinstall — channel sound is locked after first creation (`fable-review-fixes`)
+
 - ~~Stale today-date after notification open~~ — root cause: `DigestPage` memoized its date on `[dayIndex]` only; fixed with `useTodayISO()` foreground rollover (#34)
 - ~~Sources bad / outdated (Hungary, UK paywalled)~~ — curated sources are now a hard Perplexity `search_domain_filter` allowlist for the first 2 retry rounds (the prompt hint was routinely ignored); Hungary += portfolio.hu, index.hu (#33)
 - ~~Retry days should remain day day day day, not week~~ — recency sequence is day-only (#33)
