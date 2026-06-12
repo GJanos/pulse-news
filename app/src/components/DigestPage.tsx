@@ -10,6 +10,7 @@ import { RegionSection } from './RegionSection';
 import { GlobalSection } from './GlobalSection';
 import { useAppStore } from '../store';
 import type { Headline, Region } from '../types';
+import { trackEvent } from '../analytics/track';
 
 export interface DigestPageHandle {
   forceRefresh: () => void;
@@ -49,6 +50,15 @@ export const DigestPage = React.memo(
       currencyRates,
       forceRefresh,
     } = useDigestPageData(date, isToday, currencyRatesEnabled);
+
+    const activeDayIndex = useAppStore((s) => s.dayIndex);
+    const viewedTrackedRef = useRef(false);
+
+    useEffect(() => {
+      if (viewedTrackedRef.current || !digest || activeDayIndex !== dayIndex) return;
+      viewedTrackedRef.current = true;
+      trackEvent('digest_viewed', { date });
+    }, [digest, activeDayIndex, dayIndex, date]);
 
     const flatRef = useRef<FlatList<ListItem> | null>(null);
     const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

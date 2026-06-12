@@ -51,6 +51,7 @@ export const defaultConfig: PulseConfig = {
   db: {
     evict: true,
     evictDays: 7,
+    evictUsageDays: 90,
   },
   log: {
     level: 'info',
@@ -75,6 +76,9 @@ function validateConfig(config: PulseConfig): void {
   }
   if (config.db.evictDays < 1) {
     throw new Error('pulse.config.json: db.evictDays must be >= 1');
+  }
+  if (config.db.evictUsageDays < 1) {
+    throw new Error('pulse.config.json: db.evictUsageDays must be >= 1');
   }
 }
 

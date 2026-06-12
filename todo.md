@@ -22,13 +22,15 @@ Client caching (expo-image) is already solved; this is purely source-URL rot.
 
 **Phase 4 — Usage statistics collector (new component, research-y)**
 
-- [ ] Component to record usage stats (articles read, time in app) + handle device-registration deletion cleanup
-  - Lawful basis = "legitimate interests" (no consent popup) **if** Privacy Policy discloses it; keep aggregate/pseudonymous (userID + articleID + timestamp)
-- _Open Q: event schema, collection path (app → `/api/...` → Supabase), and retention — the real brainstorm candidate._
+- [x] Component to record usage stats (articles read, time in app) + handle device-registration deletion cleanup
+  - Events: `article_open`, `article_read`, `digest_viewed` — written directly to `usage_events` table via publishable key (RLS: `user_id = auth.uid()`)
+  - `user_id` ref + `ON DELETE CASCADE` handles account deletion automatically
+  - Evicted after 90 days by daily cron (`db.evictUsageDays`)
+  - Fire-and-forget (`track.ts`) — analytics never block UI
 
 ### Deferred / Research
 
-- [ ] Record user usage statistics for metrics and analysis _(see GDPR section under Go Live; overlaps Phase 4 above)_
+- [x] Record user usage statistics for metrics and analysis _(see GDPR section under Go Live; overlaps Phase 4 above)_
 - [ ] Start using bun as a package manager
 
 ---

@@ -71,7 +71,7 @@ const makeConfig = (evict = false): PulseConfig => ({
       },
     },
   },
-  db: { evict, evictDays: 14 },
+  db: { evict, evictDays: 14, evictUsageDays: 90 },
   log: { level: 'debug', qualityLog: true },
 });
 

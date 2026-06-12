@@ -58,7 +58,8 @@
     },
     "db": {
       "evict": false,
-      "evictDays": 14
+      "evictDays": 14,
+      "evictUsageDays": 90
     },
     "log": {
       "level": "debug",

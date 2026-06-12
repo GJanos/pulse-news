@@ -61,9 +61,22 @@ export async function persistDigests(digests: RegionDigest[], config: PulseConfi
   const today = new Date().toISOString().slice(0, 10);
 
   if (config.db.evict) {
-    const { error } = await db.from('digests').delete().lt('date', cutoffDate(config.db.evictDays));
-    if (error) log.warn(`Eviction failed: ${error.message}`);
+    const { error: digestErr } = await db
+      .from('digests')
+      .delete()
+      .lt('date', cutoffDate(config.db.evictDays));
+    if (digestErr) log.warn(`Digest eviction failed: ${digestErr.message}`);
     else log.info(`Evicted digests older than ${config.db.evictDays} days`);
+
+    const { error: usageErr } = await db
+      .from('usage_events')
+      .delete()
+      .lt(
+        'occurred_at',
+        new Date(Date.now() - config.db.evictUsageDays * 24 * 60 * 60 * 1000).toISOString(),
+      );
+    if (usageErr) log.warn(`Usage events eviction failed: ${usageErr.message}`);
+    else log.info(`Evicted usage events older than ${config.db.evictUsageDays} days`);
   }
 
   const rows = digests.map((d) => ({

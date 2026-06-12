@@ -123,3 +123,32 @@ CREATE POLICY "public read"
   ON digests
   FOR SELECT
   USING (true);
+
+-- ============================================================
+-- usage_events
+-- One row per analytics event (article_open, article_read, digest_viewed).
+-- user_id references auth.users — ON DELETE CASCADE handles account deletion.
+-- metadata holds event-specific context (region, url, date) as loose JSONB
+-- so the schema stays stable as new event types are added.
+-- Eviction: cron deletes rows older than db.evictUsageDays (default 90 days).
+-- Index on (user_id, occurred_at DESC) covers both the self-select RLS query
+-- and future per-user analytics reads.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS usage_events (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_type  TEXT        NOT NULL,
+  metadata    JSONB       NOT NULL DEFAULT '{}',
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS usage_events_user_occurred
+  ON usage_events (user_id, occurred_at DESC);
+
+ALTER TABLE usage_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "users insert own events"
+  ON usage_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "users read own events"
+  ON usage_events FOR SELECT USING (auth.uid() = user_id);

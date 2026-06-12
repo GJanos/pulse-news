@@ -69,6 +69,7 @@ export interface ApiConfig {
 export interface DbConfig {
   evict: boolean;
   evictDays: number;
+  evictUsageDays: number;
 }
 
 export interface LogConfig {

@@ -13,6 +13,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { font, THEMES, AESTHETICS } from '../themes';
+import { trackEvent } from '../analytics/track';
 import { useAppStore } from '../store';
 import PulseIcon from '../components/Icon';
 import Flag from '../components/Flag';
@@ -51,6 +52,7 @@ export default function ArticleScreen({
   useEffect(() => {
     translateX.value = withTiming(0, { duration: 280, easing: Easing.out(Easing.cubic) });
     setEdgeExclusion(true);
+    trackEvent('article_open', { region: region.code, url: headline.url });
     return () => {
       setEdgeExclusion(false);
     };
@@ -70,8 +72,9 @@ export default function ArticleScreen({
   }, [onClose]);
 
   const openArticle = useCallback((): void => {
+    trackEvent('article_read', { region: region.code, url: headline.url });
     setReaderUrl(headline.url);
-  }, [headline.url, setReaderUrl]);
+  }, [headline.url, region.code, setReaderUrl]);
 
   const animateClose = useCallback(() => {
     translateX.value = withTiming(W, { duration: 200, easing: Easing.in(Easing.cubic) }, () => {
