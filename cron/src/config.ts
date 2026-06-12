@@ -61,6 +61,24 @@ export const defaultConfig: PulseConfig = {
 
 // ── Config loading ────────────────────────────────────────────────────────────
 
+function validateConfig(config: PulseConfig): void {
+  if (!Array.isArray(config.api.regions) || config.api.regions.length === 0) {
+    throw new Error('pulse.config.json: regions must be a non-empty array');
+  }
+  if (config.api.fetch.count < 1) {
+    throw new Error('pulse.config.json: api.fetch.count must be >= 1');
+  }
+  if (
+    !Array.isArray(config.api.fetch.recencySequence) ||
+    config.api.fetch.recencySequence.length === 0
+  ) {
+    throw new Error('pulse.config.json: api.fetch.recencySequence must be non-empty');
+  }
+  if (config.db.evictDays < 1) {
+    throw new Error('pulse.config.json: db.evictDays must be >= 1');
+  }
+}
+
 export function loadPulseConfig(configPath?: string): PulseConfig {
   // pulse.config.json lives in shared/ (moved from cron/ in Phase 1)
   const resolvedPath =
@@ -73,10 +91,12 @@ export function loadPulseConfig(configPath?: string): PulseConfig {
     const parsed = (JSON.parse(raw) as { cron?: Partial<PulseConfig> }).cron ?? {};
     const merged = mergeConfig(defaultConfig, parsed);
     configureLogger(merged);
+    validateConfig(merged);
     return merged;
   }
 
   configureLogger(config);
+  validateConfig(config);
   return config;
 }
 
