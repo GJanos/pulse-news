@@ -6,6 +6,7 @@ import { config } from '../config';
 import { registerForPushNotifications, listenForTokenRefresh } from '../notifications/register';
 import { getNotificationPermission, ensureDefaultChannel } from '../notifications/fcm';
 import { linkDeviceToUser, updateNotifyTime } from '../notifications/devices';
+import { localTimeToUTC } from '../utils/time';
 import { getLogger } from '../logger';
 
 const log = getLogger('useDeviceRegistration');
@@ -104,7 +105,7 @@ export function useDeviceRegistration(): void {
   const notifyTime = useAppStore((s) => s.prefs.notifyTime);
   useEffect(() => {
     if (!deviceId || !prefsHydrated) return;
-    updateNotifyTime(deviceId, notifyTime).catch((e: unknown) =>
+    updateNotifyTime(deviceId, localTimeToUTC(notifyTime)).catch((e: unknown) =>
       log.warn(`updateNotifyTime failed: ${String(e)}`),
     );
   }, [deviceId, prefsHydrated, notifyTime]);
