@@ -138,7 +138,7 @@ export async function dispatchFcm(
     );
 
     batchTokens.forEach((token, tokenIndex) => {
-      const code = result.responses[tokenIndex]!.error?.code;
+      const code = result.responses[tokenIndex]?.error?.code;
       if (
         code === 'messaging/registration-token-not-registered' ||
         code === 'messaging/invalid-registration-token'
@@ -169,7 +169,9 @@ export async function sendNotifications(digests: RegionDigest[]): Promise<void> 
     return;
   }
 
-  const tokens = devices.map((d) => d.fcm_token as string);
+  const tokens = devices
+    .map((d) => d.fcm_token as string | null)
+    .filter((t): t is string => t != null);
   const regions = digests.map((d) => d.region).join(',');
   await dispatchFcm(tokens, regions);
 }

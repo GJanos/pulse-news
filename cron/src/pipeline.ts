@@ -90,9 +90,12 @@ export async function runFetchPipeline(
     result.status === 'fulfilled' ? [result.value] : [],
   );
 
-  const errors = results
-    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-    .map((result, index) => ({ region: resolvedRegions[index]!.region, reason: result.reason }));
+  const errors: Array<{ region: string; reason: unknown }> = [];
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      errors.push({ region: resolvedRegions[index]!.region, reason: result.reason });
+    }
+  });
 
   return {
     resolvedRegions,

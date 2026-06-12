@@ -59,10 +59,10 @@ export async function registerForPushNotifications(): Promise<DeviceRegistration
   return { deviceId, fcmToken };
 }
 
-/** Upsert the device row and cache the token in MMKV — the single write path. */
+/** Upsert the device row and cache the token in MMKV only when the RPC succeeds. */
 async function persistToken(deviceId: string, token: string): Promise<void> {
-  await upsertDevice({ deviceId, fcmToken: token });
-  storage.set(TOKEN_KEY, token);
+  const ok = await upsertDevice({ deviceId, fcmToken: token });
+  if (ok) storage.set(TOKEN_KEY, token);
 }
 
 /** Re-upsert + re-cache when Firebase rotates the token. Returns unsubscribe. */

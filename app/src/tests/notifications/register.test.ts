@@ -35,7 +35,7 @@ beforeEach(() => {
   storage.clearAll();
   mockFcm.requestPushPermission.mockResolvedValue(true);
   mockFcm.getFcmToken.mockResolvedValue('tok-new');
-  mockDevices.upsertDevice.mockResolvedValue(undefined);
+  mockDevices.upsertDevice.mockResolvedValue(true);
 });
 
 describe('getOrCreateDeviceId', () => {
