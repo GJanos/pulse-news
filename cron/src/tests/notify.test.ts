@@ -1,4 +1,10 @@
-import { persistDigests, persistGlobalDigest, dispatchFcm, sendNotifications } from '../notify';
+import {
+  persistDigests,
+  persistGlobalDigest,
+  dispatchFcm,
+  sendNotifications,
+  sendDueNotifications,
+} from '../notify';
 import type { RegionDigest } from '../types';
 import type { PulseConfig } from '@shared/config';
 
@@ -15,6 +21,7 @@ const mockSupabase = {
   upsert: jest.fn().mockResolvedValue({ error: null }),
   select: jest.fn().mockResolvedValue({ data: [], error: null }),
   in: jest.fn().mockResolvedValue({ error: null }),
+  rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
 };
 
 jest.mock('@supabase/supabase-js', () => ({
@@ -370,5 +377,67 @@ describe('sendNotifications', () => {
     await expect(
       sendNotifications([{ region: 'Hungary', headlines: [], attempts: 1 }]),
     ).rejects.toThrow('Failed to read device tokens: query failed');
+  });
+});
+
+// ── sendDueNotifications ─────────────────────────────────────────────────────────
+
+describe('sendDueNotifications', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSupabase.from.mockReturnThis();
+    mockSupabase.in.mockResolvedValue({ error: null });
+    mockSupabase.rpc.mockResolvedValue({ data: [], error: null });
+    process.env.SUPABASE_URL = 'https://test.supabase.co';
+    process.env.SUPABASE_SECRET_KEY = 'test-key';
+    process.env.FIREBASE_PROJECT_ID = 'test-project';
+    process.env.FIREBASE_CLIENT_EMAIL = 'test@test.iam.gserviceaccount.com';
+    process.env.FIREBASE_PRIVATE_KEY =
+      '-----BEGIN PRIVATE KEY-----\\ntest\\n-----END PRIVATE KEY-----';
+  });
+
+  it('claims due tokens via the claim_due_notifications RPC and dispatches them', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [{ fcm_token: 'tok-a' }, { fcm_token: 'tok-b' }],
+      error: null,
+    });
+    mockSendEachForMulticast.mockResolvedValueOnce({
+      successCount: 2,
+      responses: [{ error: null }, { error: null }],
+    });
+
+    const result = await sendDueNotifications();
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('claim_due_notifications');
+    expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+      expect.objectContaining({ tokens: ['tok-a', 'tok-b'] }),
+    );
+    expect(result).toEqual({ sent: 2, total: 2 });
+  });
+
+  it('skips dispatch and returns zero when no devices are due', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await sendDueNotifications();
+
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+    expect(result).toEqual({ sent: 0, total: 0 });
+  });
+
+  it('treats null RPC data as no devices due', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+
+    const result = await sendDueNotifications();
+
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+    expect(result).toEqual({ sent: 0, total: 0 });
+  });
+
+  it('throws when the claim RPC returns an error', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({ data: null, error: { message: 'rpc failed' } });
+
+    await expect(sendDueNotifications()).rejects.toThrow(
+      'Failed to claim due notifications: rpc failed',
+    );
   });
 });
