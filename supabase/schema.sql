@@ -142,3 +142,67 @@ CREATE TABLE IF NOT EXISTS notify_state (
 INSERT INTO notify_state (id) VALUES (TRUE) ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE notify_state ENABLE ROW LEVEL SECURITY;
+
+-- peek_due_notifications — read-only "is any device due since last_run_at?".
+-- Called by the .github/workflows/notify.yml guard step to skip checkout+npm on
+-- empty windows. A device is due iff the most recent occurrence of its notify_at
+-- (today if it has already passed in UTC, else yesterday) is later than
+-- last_run_at. notify_at is a UTC time-of-day, matching the rest of the cron.
+CREATE OR REPLACE FUNCTION peek_due_notifications()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM devices d, notify_state s
+    WHERE d.notify_at IS NOT NULL
+      AND (
+        (CASE
+           WHEN d.notify_at <= (now() AT TIME ZONE 'UTC')::time
+             THEN (now() AT TIME ZONE 'UTC')::date + d.notify_at
+             ELSE (now() AT TIME ZONE 'UTC')::date - 1 + d.notify_at
+         END) AT TIME ZONE 'UTC'
+      ) > s.last_run_at
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION peek_due_notifications() TO service_role;
+
+-- claim_due_notifications — returns the FCM tokens of all due devices AND
+-- advances last_run_at to now() atomically (FOR UPDATE serialises with the
+-- workflow's concurrency group). Advancing before dispatch gives at-most-once
+-- delivery, which is preferred over double-notify spam. Called by jobs/notify.ts.
+CREATE OR REPLACE FUNCTION claim_due_notifications()
+RETURNS TABLE (fcm_token text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_now  timestamptz := now();
+  v_last timestamptz;
+BEGIN
+  SELECT s.last_run_at INTO v_last
+  FROM notify_state s
+  WHERE s.id
+  FOR UPDATE;
+
+  RETURN QUERY
+    SELECT d.fcm_token
+    FROM devices d
+    WHERE d.notify_at IS NOT NULL
+      AND (
+        (CASE
+           WHEN d.notify_at <= (v_now AT TIME ZONE 'UTC')::time
+             THEN (v_now AT TIME ZONE 'UTC')::date + d.notify_at
+             ELSE (v_now AT TIME ZONE 'UTC')::date - 1 + d.notify_at
+         END) AT TIME ZONE 'UTC'
+      ) > v_last;
+
+  UPDATE notify_state SET last_run_at = v_now WHERE id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION claim_due_notifications() TO service_role;
