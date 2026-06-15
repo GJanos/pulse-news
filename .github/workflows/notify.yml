@@ -1,10 +1,11 @@
 name: Notify
 
 # Scheduled Actions caveats:
-# - GitHub fires `schedule` best-effort; delays of 5–15+ minutes are normal.
-#   The guard snaps "now" to the last 30-min boundary, then uses that as the
-#   window START (forward-looking). A 10:03 actual run produces window
-#   [10:00, 10:30) — same as an on-time 10:00 run.
+# - GitHub fires `schedule` best-effort; delays of 5–15+ minutes (or whole
+#   skipped slots) are normal. The job notifies devices whose notify_at fell in
+#   (last_run_at, now], so a skipped slot is caught up on the next run instead of
+#   dropping those devices. last_run_at lives in the notify_state table and only
+#   advances when the job actually runs.
 # - GitHub disables schedules after 60 days without repo activity.
 # - Cost (private repo): each job bills a minimum of 1 minute, so 48 runs/day
 #   is a ~1,440 min/month floor against the 2,000 free minutes. The guard step
@@ -30,44 +31,38 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      # Most half-hour windows contain no devices. Ask Supabase REST first
-      # (no checkout/install needed) and skip the heavy steps when empty.
-      # "now" is snapped to the last 30-min boundary (the slot start). The
-      # window [slot_start, slot_start + 30 min) is forward-looking, so a
-      # 10:03 delayed run still notifies 10:00 users. Fails OPEN: any guard
-      # error runs the job.
-      - name: Check window for devices
+      # Most runs have no due devices. Ask Supabase first (no checkout/install
+      # needed) via the peek RPC and skip the heavy steps when nothing is due.
+      # The RPC encapsulates the (last_run_at, now] selection rule shared with
+      # the job. Fails OPEN: any guard error runs the job.
+      - name: Check for due devices
         id: guard
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
           node -e '
-            const pad = (n) => String(n).padStart(2, "0");
-            const fmt = (d) => `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:00`;
-            const HALF_HOUR_MS = 30 * 60 * 1000;
-            const now = new Date(Math.floor(Date.now() / HALF_HOUR_MS) * HALF_HOUR_MS);
-            const start = fmt(now);
-            const end = fmt(new Date(now.getTime() + HALF_HOUR_MS));
-            const url = `${process.env.SUPABASE_URL}/rest/v1/devices` +
-              `?select=fcm_token&notify_at=not.is.null&notify_at=gte.${start}&notify_at=lt.${end}&limit=1`;
-            fetch(url, { headers: {
-              apikey: process.env.SUPABASE_SECRET_KEY,
-              Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`,
-            }})
+            const url = `${process.env.SUPABASE_URL}/rest/v1/rpc/peek_due_notifications`;
+            fetch(url, {
+              method: "POST",
+              headers: {
+                apikey: process.env.SUPABASE_SECRET_KEY,
+                Authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: "{}",
+            })
               .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-              .then((rows) => {
-                console.log(`window ${start}–${end}: ${rows.length ? "devices found" : "empty"}`);
-                process.stdout.write(`has=${rows.length > 0}\nstart=${start}\nend=${end}\n`);
+              .then((due) => {
+                console.log(`due: ${due}`);
+                process.stdout.write(`has=${due === true}\n`);
               })
               .catch((e) => {
                 console.log(`guard error (${e.message}) — failing open`);
-                process.stdout.write(`has=true\nstart=${start}\nend=${end}\n`);
+                process.stdout.write("has=true\n");
               });
           ' | tee guard.out
-          grep '^has=' guard.out >> "$GITHUB_OUTPUT" || echo "has=true" >> "$GITHUB_OUTPUT"
-          grep '^start=' guard.out >> "$GITHUB_OUTPUT" || true
-          grep '^end=' guard.out >> "$GITHUB_OUTPUT" || true
+          grep "^has=" guard.out >> "$GITHUB_OUTPUT" || echo "has=true" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         if: steps.guard.outputs.has == 'true'
@@ -82,5 +77,3 @@ jobs:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-          NOTIFY_WINDOW_START: ${{ steps.guard.outputs.start }}
-          NOTIFY_WINDOW_END: ${{ steps.guard.outputs.end }}

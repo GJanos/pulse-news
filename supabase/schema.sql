@@ -123,3 +123,93 @@ CREATE POLICY "public read"
   ON digests
   FOR SELECT
   USING (true);
+
+-- ============================================================
+-- notify_state
+-- Single-row store of the last time jobs/notify.ts processed a window.
+-- jobs/notify.ts notifies devices whose notify_at fell in (last_run_at, now],
+-- so no device is dropped when the GitHub Actions schedule fires irregularly.
+-- Seeded with now() so the first run after deploy sees a tiny window and does
+-- NOT mass-notify every device. Only the cron service-role key touches this
+-- table; the service role bypasses RLS, so no policy is defined.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS notify_state (
+  id          BOOLEAN     PRIMARY KEY DEFAULT TRUE CHECK (id),
+  last_run_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Exactly one row (id = TRUE); CHECK (id) + the PK forbid a second row.
+INSERT INTO notify_state (id) VALUES (TRUE) ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE notify_state ENABLE ROW LEVEL SECURITY;
+
+-- peek_due_notifications — read-only "is any device due since last_run_at?".
+-- Called by the .github/workflows/notify.yml guard step to skip checkout+npm on
+-- empty windows. A device is due iff the most recent occurrence of its notify_at
+-- (today if it has already passed in UTC, else yesterday) is later than
+-- last_run_at. notify_at is a UTC time-of-day, matching the rest of the cron.
+CREATE OR REPLACE FUNCTION peek_due_notifications()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM devices d, notify_state s
+    WHERE d.notify_at IS NOT NULL
+      AND (
+        (CASE
+           WHEN d.notify_at <= (now() AT TIME ZONE 'UTC')::time
+             THEN (now() AT TIME ZONE 'UTC')::date + d.notify_at
+             ELSE (now() AT TIME ZONE 'UTC')::date - 1 + d.notify_at
+         END) AT TIME ZONE 'UTC'
+      ) > s.last_run_at
+  );
+$$;
+
+-- Service-only: the cron runs as service_role. Postgres + Supabase grant EXECUTE
+-- to PUBLIC/anon/authenticated by default, which would let the app's publishable
+-- key call this RPC; revoke that so only the secret key can.
+REVOKE EXECUTE ON FUNCTION peek_due_notifications() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION peek_due_notifications() TO service_role;
+
+-- claim_due_notifications — returns the FCM tokens of all due devices AND
+-- advances last_run_at to now() atomically (FOR UPDATE serialises with the
+-- workflow's concurrency group). Advancing before dispatch gives at-most-once
+-- delivery, which is preferred over double-notify spam. Called by jobs/notify.ts.
+CREATE OR REPLACE FUNCTION claim_due_notifications()
+RETURNS TABLE (fcm_token text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_now  timestamptz := now();
+  v_last timestamptz;
+BEGIN
+  SELECT s.last_run_at INTO v_last
+  FROM notify_state s
+  WHERE s.id
+  FOR UPDATE;
+
+  RETURN QUERY
+    SELECT d.fcm_token
+    FROM devices d
+    WHERE d.notify_at IS NOT NULL
+      AND (
+        (CASE
+           WHEN d.notify_at <= (v_now AT TIME ZONE 'UTC')::time
+             THEN (v_now AT TIME ZONE 'UTC')::date + d.notify_at
+             ELSE (v_now AT TIME ZONE 'UTC')::date - 1 + d.notify_at
+         END) AT TIME ZONE 'UTC'
+      ) > v_last;
+
+  UPDATE notify_state SET last_run_at = v_now WHERE id;
+END;
+$$;
+
+-- Service-only: claim returns FCM tokens and advances last_run_at, so it must
+-- never be reachable with the public anon key. Revoke the default PUBLIC grant.
+REVOKE EXECUTE ON FUNCTION claim_due_notifications() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION claim_due_notifications() TO service_role;

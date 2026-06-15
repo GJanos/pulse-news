@@ -157,6 +157,30 @@ export async function dispatchFcm(
   return { sent: totalSent, total: uniqueTokens.length };
 }
 
+/**
+ * Notify devices whose notify_at fell in (last_run_at, now]. The
+ * claim_due_notifications RPC returns the due FCM tokens and advances
+ * last_run_at atomically, so unreliable cron firing never drops a device.
+ * Used by jobs/notify.ts.
+ */
+export async function sendDueNotifications(): Promise<{ sent: number; total: number }> {
+  const log = getLogger('notify');
+  const db = buildClient();
+
+  const { data, error } = await db.rpc('claim_due_notifications');
+  if (error) {
+    throw new Error(`Failed to claim due notifications: ${error.message}`);
+  }
+
+  const tokens = ((data ?? []) as Array<{ fcm_token: string }>).map((d) => d.fcm_token);
+  if (tokens.length === 0) {
+    log.info('No devices due');
+    return { sent: 0, total: 0 };
+  }
+
+  return dispatchFcm(tokens);
+}
+
 /** Send notifications to all registered devices. Used by the local cron runner for testing. */
 export async function sendNotifications(digests: RegionDigest[]): Promise<void> {
   const log = getLogger('notify');
