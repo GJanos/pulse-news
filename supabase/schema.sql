@@ -123,3 +123,22 @@ CREATE POLICY "public read"
   ON digests
   FOR SELECT
   USING (true);
+
+-- ============================================================
+-- notify_state
+-- Single-row store of the last time jobs/notify.ts processed a window.
+-- jobs/notify.ts notifies devices whose notify_at fell in (last_run_at, now],
+-- so no device is dropped when the GitHub Actions schedule fires irregularly.
+-- Seeded with now() so the first run after deploy sees a tiny window and does
+-- NOT mass-notify every device. Only the cron service-role key touches this
+-- table; the service role bypasses RLS, so no policy is defined.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS notify_state (
+  id          BOOLEAN     PRIMARY KEY DEFAULT TRUE CHECK (id),
+  last_run_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Exactly one row (id = TRUE); CHECK (id) + the PK forbid a second row.
+INSERT INTO notify_state (id) VALUES (TRUE) ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE notify_state ENABLE ROW LEVEL SECURITY;
