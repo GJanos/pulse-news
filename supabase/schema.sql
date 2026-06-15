@@ -168,6 +168,10 @@ AS $$
   );
 $$;
 
+-- Service-only: the cron runs as service_role. Postgres + Supabase grant EXECUTE
+-- to PUBLIC/anon/authenticated by default, which would let the app's publishable
+-- key call this RPC; revoke that so only the secret key can.
+REVOKE EXECUTE ON FUNCTION peek_due_notifications() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION peek_due_notifications() TO service_role;
 
 -- claim_due_notifications — returns the FCM tokens of all due devices AND
@@ -205,4 +209,7 @@ BEGIN
 END;
 $$;
 
+-- Service-only: claim returns FCM tokens and advances last_run_at, so it must
+-- never be reachable with the public anon key. Revoke the default PUBLIC grant.
+REVOKE EXECUTE ON FUNCTION claim_due_notifications() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION claim_due_notifications() TO service_role;
