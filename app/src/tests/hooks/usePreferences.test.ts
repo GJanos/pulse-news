@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 import { useAppStore } from '../../store';
 import { usePreferences } from '../../hooks/usePreferences';
+import { config } from '../../config';
 import {
   DEFAULT_PREFERENCES,
   loadLocalPreferences,
@@ -170,7 +171,7 @@ describe('userId change', () => {
 // ── Dirty flush (debounced) ──────────────────────────────────────────
 
 describe('dirty flush', () => {
-  it('saves to local after 900ms following a setPref call', async () => {
+  it('saves to local after the debounce window following a setPref call', async () => {
     renderHook(() => usePreferences());
     await waitFor(() => expect(useAppStore.getState().appState).toBe('ready'));
 
@@ -180,7 +181,7 @@ describe('dirty flush', () => {
     expect(mockSave).not.toHaveBeenCalled();
 
     act(() => {
-      jest.advanceTimersByTime(900);
+      jest.advanceTimersByTime(config.prefsDebounceMs);
     });
     expect(mockSave).toHaveBeenCalledTimes(1);
   });
@@ -195,7 +196,7 @@ describe('dirty flush', () => {
       useAppStore.getState().setPref('historyDays', 14);
     });
     act(() => {
-      jest.advanceTimersByTime(900);
+      jest.advanceTimersByTime(config.prefsDebounceMs);
     });
     expect(mockSave).toHaveBeenCalledTimes(1);
   });

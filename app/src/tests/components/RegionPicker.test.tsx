@@ -92,17 +92,20 @@ describe('RegionPicker — reorder mode', () => {
     expect((call![1] as string[]).length).toBe(ALL_REGIONS.length);
   });
 
-  it('All pill is a no-op when all regions are already selected', () => {
+  it('pill toggles to None when all selected and reduces to a single region', () => {
     const { REGIONS } = jest.requireActual('../../data') as { REGIONS: { region: string }[] };
     useAppStore.setState({
       prefs: { ...DEFAULT_PREFERENCES, selectedRegions: REGIONS.map((r) => r.region) },
     });
     const setPref = spySetPref();
-    const { getByText } = renderPicker();
+    const { getByText, queryByText } = renderPicker();
     fireEvent.press(getByText('Reorder'));
-    fireEvent.press(getByText('All'));
+    // When everything is selected the pill reads "None", not "All".
+    expect(queryByText('All')).toBeNull();
+    fireEvent.press(getByText('None'));
     const call = (setPref as jest.Mock).mock.calls.find((c) => c[0] === 'selectedRegions');
-    expect(call).toBeUndefined(); // no-op — cannot deselect all
+    expect(call).toBeTruthy();
+    expect((call![1] as string[]).length).toBe(1); // keeps one — never empty
   });
 });
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDigest } from './useDigest';
 import { useGlobalHeadlines } from './useGlobalHeadlines';
 import { useCurrencyRates } from './useCurrencyRates';
@@ -36,10 +36,28 @@ export function clampGlobalHeadlineCount(stored: number, max: number): number {
   return Math.min(stored, max);
 }
 
+/**
+ * Holds a value steady while the Settings screen is open, re-settling to the live
+ * value on return. The digest pages stay mounted behind Settings, so without this a
+ * region/count edit changes the React Query key and refetches both visible-window
+ * pages on every toggle — janking the (invisible) digest mid-interaction. Mirrors the
+ * currency-query pause below: settle once on leaving Settings.
+ */
+function useSettledWhileSettings<T>(value: T): T {
+  const inSettings = useAppStore((s) => s.screen === 'settings');
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    if (!inSettings) setSettled(value);
+  }, [inSettings, value]);
+  return settled;
+}
+
 export function useDigestPageData(date: string, isToday: boolean, currencyRatesEnabled: boolean) {
-  const selectedRegions = useAppStore((s) => s.prefs.selectedRegions);
-  const headlineCount = useAppStore((s) => s.prefs.headlineCount);
-  const regionHeadlineCounts = useAppStore((s) => s.prefs.regionHeadlineCounts);
+  const selectedRegions = useSettledWhileSettings(useAppStore((s) => s.prefs.selectedRegions));
+  const headlineCount = useSettledWhileSettings(useAppStore((s) => s.prefs.headlineCount));
+  const regionHeadlineCounts = useSettledWhileSettings(
+    useAppStore((s) => s.prefs.regionHeadlineCounts),
+  );
   const historyDays = useAppStore((s) => s.prefs.historyDays);
   const showGlobalHeadlines = useAppStore((s) => s.prefs.showGlobalHeadlines);
   const globalHeadlineCount = useAppStore((s) => s.prefs.globalHeadlineCount);

@@ -264,12 +264,25 @@ export default React.memo(function DigestPager({
 
   const theme = useAppStore((s) => THEMES[s.prefs.theme]);
   const aes = useAppStore((s) => AESTHETICS[s.prefs.aesthetic]);
-  const maxDayIndex = useAppStore((s) => maxDayIndexFor(s.prefs.historyDays));
-  const showGlobalHeadlines = useAppStore((s) => s.prefs.showGlobalHeadlines);
+  const liveMaxDayIndex = useAppStore((s) => maxDayIndexFor(s.prefs.historyDays));
   const showCurrencyRates = useAppStore((s) => s.prefs.showCurrencyRates);
-  const selectedRegions = useAppStore((s) => s.prefs.selectedRegions);
+  // Derived boolean so the pager only re-renders when jump-ability actually flips,
+  // not on every region toggle (which would rebuild every day page).
+  const canJump = useAppStore(
+    (s) => s.prefs.selectedRegions.length + (s.prefs.showGlobalHeadlines ? 1 : 0) > 1,
+  );
   const screen = useAppStore((s) => s.screen);
   const setScreen = useAppStore((s) => s.setScreen);
+
+  // Freeze the page count while Settings is open. History-days lives ON the settings
+  // page; changing it reflows the pager (day pages are added/removed on the left),
+  // which shifts the settings page index out from under the user and twitches the view.
+  // Hold the old count until they leave Settings — by then they're on a day page, so
+  // the reflow happens off-screen.
+  const [maxDayIndex, setMaxDayIndex] = useState(liveMaxDayIndex);
+  useEffect(() => {
+    if (screen !== 'settings' && maxDayIndex !== liveMaxDayIndex) setMaxDayIndex(liveMaxDayIndex);
+  }, [screen, liveMaxDayIndex, maxDayIndex]);
 
   const { getSlotSetter, setActivePage } = usePageRefs<DigestPageHandle>(activePageRef);
   useDigestRefreshOnNonce(activePageRef);
@@ -306,14 +319,36 @@ export default React.memo(function DigestPager({
   }, [dayIndex, setActivePage]);
 
   // Drive the scroll position from store changes (header buttons, hardware back,
-  // notification navigation). Guarded so it ignores echoes of the user's own scroll.
+  // notification navigation). Animated. maxDayIndex is intentionally NOT a dependency:
+  // a historyDays change reflows the page count and is re-anchored in onContentSizeChange
+  // instead — scrolling here would race the reflow and clamp against the pre-growth
+  // content width, landing on the wrong page.
   useEffect(() => {
     const target =
       screen === 'settings' ? settingsPage(maxDayIndex) : pageForDay(dayIndex, maxDayIndex);
     if (currentPage.current === target) return;
     currentPage.current = target;
     scrollRef.current?.scrollTo({ x: target * W, animated: true });
-  }, [screen, dayIndex, maxDayIndex, W]);
+  }, [screen, dayIndex, W]);
+
+  // Re-pin the offset after historyDays adds/removes pages. Gated on the content WIDTH
+  // changing (page count) so height changes from digests loading don't interrupt an
+  // in-progress swipe. Reads fresh store state since it runs outside the React cycle.
+  const prevContentWidth = useRef(0);
+  const onContentSizeChange = useCallback(
+    (w: number) => {
+      if (w === prevContentWidth.current) return;
+      prevContentWidth.current = w;
+      // Use the rendered (possibly frozen) maxDayIndex, not live historyDays, so the
+      // re-pin matches the page layout even if width changed for another reason (e.g.
+      // rotation) while a history-days edit is still pending in Settings.
+      const { screen: sc, dayIndex: di } = useAppStore.getState();
+      const target = sc === 'settings' ? settingsPage(maxDayIndex) : pageForDay(di, maxDayIndex);
+      currentPage.current = target;
+      scrollRef.current?.scrollTo({ x: target * W, animated: false });
+    },
+    [W, maxDayIndex],
+  );
 
   // Timestamp of the last settle on a day page; gates swipe-entry into settings
   // so an overshooting fling through "today" bounces back instead of landing
@@ -353,8 +388,6 @@ export default React.memo(function DigestPager({
   const onOpenCalendar = useCallback(() => setCalendarOpen(true), []);
   const onCloseCalendar = useCallback(() => setCalendarOpen(false), []);
 
-  const canJump = selectedRegions.length + (showGlobalHeadlines ? 1 : 0) > 1;
-
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <AnimatedPager
@@ -365,6 +398,7 @@ export default React.memo(function DigestPager({
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         onMomentumScrollEnd={onMomentumScrollEnd}
+        onContentSizeChange={onContentSizeChange}
         contentOffset={{ x: initialPage * W, y: 0 }}
         // Android can ignore the initial contentOffset prop; re-apply once on first layout.
         onLayout={() => {

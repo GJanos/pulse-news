@@ -3,7 +3,7 @@
     "screenStateTtlMs": 1800000,
     "splashAdvanceMs": 900,
     "deviceRegistrationTimeoutMs": 10000,
-    "prefsDebounceMs": 900,
+    "prefsDebounceMs": 5000,
     "logLevel": "debug",
     "digestStaleMins": 60,
     "currencyStaleMins": 5,

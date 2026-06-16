@@ -19,7 +19,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   showSummaries: true,
   photoCount: 2,
   baseCurrency: 'USD',
-  showCurrencyRates: false,
+  showCurrencyRates: true,
   showGlobalHeadlines: true,
   globalHeadlineCount: 5,
   theme: 'dark',
