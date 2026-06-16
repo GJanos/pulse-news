@@ -16,6 +16,3 @@ export const config = rawConfig.app as unknown as {
  * `ranking.global.count`
  */
 export const globalHeadlineMax: number = rawConfig.cron.api.ranking.global.count;
-
-/** Base URL of the Vercel API (e.g. https://pulse-cron.vercel.app). Empty in dev = account ops unavailable. */
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
