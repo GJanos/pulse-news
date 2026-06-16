@@ -83,7 +83,9 @@ it('links the device to the user once a session and deviceId exist', async () =>
   useAppStore.setState({
     session: { user: { id: 'user-9' } } as unknown as Session,
   });
-  await waitFor(() => expect(mockDevices.linkDeviceToUser).toHaveBeenCalledWith('dev-1', 'user-9'));
+  // user_id is derived server-side from the JWT (auth.uid()) — only the deviceId is passed.
+  // The session still gates whether we link at all.
+  await waitFor(() => expect(mockDevices.linkDeviceToUser).toHaveBeenCalledWith('dev-1'));
 });
 
 it('syncs notify_at once prefs are hydrated', async () => {

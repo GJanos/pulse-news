@@ -94,7 +94,7 @@ export function useDeviceRegistration(): void {
   const deviceId = useAppStore((s) => s.deviceId);
   useEffect(() => {
     if (!userId || !deviceId) return;
-    linkDeviceToUser(deviceId, userId).catch((e: unknown) =>
+    linkDeviceToUser(deviceId).catch((e: unknown) =>
       log.warn(`linkDeviceToUser failed: ${String(e)}`),
     );
   }, [userId, deviceId]);

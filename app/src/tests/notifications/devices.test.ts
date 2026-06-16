@@ -9,26 +9,16 @@ const mockGetSupabase = getSupabase as jest.MockedFunction<typeof getSupabase>;
 
 interface FakeClient {
   rpc: jest.Mock;
-  upsert: jest.Mock;
-  update: jest.Mock;
-  eq: jest.Mock;
-  select: jest.Mock;
+  from: jest.Mock;
 }
 
-function makeClient(): FakeClient & { from: jest.Mock } {
-  const api: FakeClient = {
-    rpc: jest.fn().mockResolvedValue({ error: null }),
-    upsert: jest.fn().mockResolvedValue({ error: null }),
-    update: jest.fn(),
-    eq: jest.fn(),
-    select: jest.fn().mockResolvedValue({ data: [{ id: 'dev-1' }], error: null }),
+// Every write now flows through client.rpc(name, args). `from` exists only so
+// tests can assert it is NEVER called (no direct table access remains).
+function makeClient(): FakeClient {
+  return {
+    rpc: jest.fn().mockResolvedValue({ data: true, error: null }),
+    from: jest.fn(),
   };
-  // update().eq() is awaited directly by updateNotifyTime (resolves to { error });
-  // update().eq().select() is awaited by linkDeviceToUser (resolves to { data, error }).
-  api.update.mockReturnValue({ eq: api.eq });
-  api.eq.mockReturnValue(Object.assign(Promise.resolve({ error: null }), { select: api.select }));
-  const from = jest.fn().mockReturnValue(api);
-  return Object.assign(api, { from });
 }
 
 beforeEach(() => {
@@ -45,7 +35,6 @@ describe('upsertDevice', () => {
       p_id: 'dev-1',
       p_token: 'tok-1',
     });
-    // No direct table write — the RPC owns the upsert + reinstall-ghost eviction.
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -73,80 +62,77 @@ describe('upsertDevice', () => {
 
   it('returns false and does not throw when the RPC returns an error', async () => {
     const client = makeClient();
-    client.rpc.mockResolvedValue({ error: { message: 'boom' } });
+    client.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
     mockGetSupabase.mockReturnValue(client as never);
     await expect(upsertDevice({ deviceId: 'dev-1', fcmToken: 'tok-1' })).resolves.toBe(false);
   });
 });
 
 describe('linkDeviceToUser', () => {
-  it('updates user_id filtered by device id', async () => {
+  it('links via link_device_to_user with p_id and never touches the table', async () => {
     const client = makeClient();
     mockGetSupabase.mockReturnValue(client as never);
-    await linkDeviceToUser('dev-1', 'user-9');
-    expect(client.update).toHaveBeenCalledWith({ user_id: 'user-9' });
-    expect(client.eq).toHaveBeenCalledWith('id', 'dev-1');
+    await linkDeviceToUser('dev-1');
+    expect(client.rpc).toHaveBeenCalledWith('link_device_to_user', { p_id: 'dev-1' });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('does not pass a user_id — it is derived server-side from the JWT', async () => {
+    const client = makeClient();
+    mockGetSupabase.mockReturnValue(client as never);
+    await linkDeviceToUser('dev-1');
+    const args = client.rpc.mock.calls[0]![1] as Record<string, unknown>;
+    expect('user_id' in args).toBe(false);
+    expect('p_user_id' in args).toBe(false);
   });
 
   it('no-ops when Supabase is unconfigured', async () => {
     mockGetSupabase.mockReturnValue(null);
-    await expect(linkDeviceToUser('dev-1', 'user-9')).resolves.toBeUndefined();
-  });
-
-  it('resolves without throwing when the update errors', async () => {
-    const client = makeClient();
-    client.select.mockResolvedValue({ data: null, error: { message: 'denied' } });
-    mockGetSupabase.mockReturnValue(client as never);
-    await expect(linkDeviceToUser('dev-1', 'user-9')).resolves.toBeUndefined();
-  });
-
-  it('resolves without throwing when no device row matches (0 rows updated)', async () => {
-    jest.useFakeTimers();
-    const client = makeClient();
-    client.select.mockResolvedValue({ data: [], error: null });
-    mockGetSupabase.mockReturnValue(client as never);
-    const promise = linkDeviceToUser('dev-1', 'user-9');
-    await jest.advanceTimersByTimeAsync(2000);
-    await jest.advanceTimersByTimeAsync(2000);
-    await promise;
-    jest.useRealTimers();
-  });
-
-  it('retries up to 3 times on 0-row, succeeding on the last attempt', async () => {
-    jest.useFakeTimers();
-    const client = makeClient();
-    client.select
-      .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValue({ data: [{ id: 'dev-1' }], error: null });
-    mockGetSupabase.mockReturnValue(client as never);
-    const promise = linkDeviceToUser('dev-1', 'user-9');
-    await jest.advanceTimersByTimeAsync(2000);
-    await jest.advanceTimersByTimeAsync(2000);
-    await promise;
-    expect(client.select).toHaveBeenCalledTimes(3);
-    jest.useRealTimers();
-  });
-
-  it('stops after 3 attempts when device row never appears', async () => {
-    jest.useFakeTimers();
-    const client = makeClient();
-    client.select.mockResolvedValue({ data: [], error: null });
-    mockGetSupabase.mockReturnValue(client as never);
-    const promise = linkDeviceToUser('dev-1', 'user-9');
-    await jest.advanceTimersByTimeAsync(2000);
-    await jest.advanceTimersByTimeAsync(2000);
-    await promise;
-    expect(client.select).toHaveBeenCalledTimes(3);
-    jest.useRealTimers();
+    await expect(linkDeviceToUser('dev-1')).resolves.toBeUndefined();
   });
 
   it('does not retry on a Supabase error — exits immediately', async () => {
     const client = makeClient();
-    client.select.mockResolvedValue({ data: null, error: { message: 'denied' } });
+    client.rpc.mockResolvedValue({ data: null, error: { message: 'denied' } });
     mockGetSupabase.mockReturnValue(client as never);
-    await linkDeviceToUser('dev-1', 'user-9');
-    expect(client.select).toHaveBeenCalledTimes(1);
+    await linkDeviceToUser('dev-1');
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('succeeds on the first attempt when data is true', async () => {
+    const client = makeClient();
+    mockGetSupabase.mockReturnValue(client as never);
+    await linkDeviceToUser('dev-1');
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on a false (0-row) result, succeeding on the last attempt', async () => {
+    jest.useFakeTimers();
+    const client = makeClient();
+    client.rpc
+      .mockResolvedValueOnce({ data: false, error: null })
+      .mockResolvedValueOnce({ data: false, error: null })
+      .mockResolvedValue({ data: true, error: null });
+    mockGetSupabase.mockReturnValue(client as never);
+    const promise = linkDeviceToUser('dev-1');
+    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(2000);
+    await promise;
+    expect(client.rpc).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
+  });
+
+  it('stops after 3 attempts when the row never appears (always false)', async () => {
+    jest.useFakeTimers();
+    const client = makeClient();
+    client.rpc.mockResolvedValue({ data: false, error: null });
+    mockGetSupabase.mockReturnValue(client as never);
+    const promise = linkDeviceToUser('dev-1');
+    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(2000);
+    await promise;
+    expect(client.rpc).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
   });
 });
 
@@ -155,22 +141,19 @@ describe('updateNotifyTime', () => {
     const client = makeClient();
     mockGetSupabase.mockReturnValue(client as never);
     await updateNotifyTime('dev-1', '09:00');
-    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
-  it('issues a direct notify_at update filtered by device id', async () => {
+  it('calls update_notify_time with p_id + p_notify_at and never touches the table', async () => {
     storage.set(TOKEN_KEY, 'tok-cached');
     const client = makeClient();
     mockGetSupabase.mockReturnValue(client as never);
     await updateNotifyTime('dev-1', '09:00');
-    expect(client.from).toHaveBeenCalledWith('devices');
-    const payload = client.update.mock.calls[0]![0] as Record<string, unknown>;
-    expect(payload.notify_at).toBe('09:00');
-    expect(typeof payload.updated_at).toBe('string');
-    expect(client.eq).toHaveBeenCalledWith('id', 'dev-1');
-    // Not a registration: no token/id write, so no upsert and no RPC eviction.
-    expect(client.upsert).not.toHaveBeenCalled();
-    expect(client.rpc).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalledWith('update_notify_time', {
+      p_id: 'dev-1',
+      p_notify_at: '09:00',
+    });
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it('forwards a null notify_at (clearing the time)', async () => {
@@ -178,26 +161,23 @@ describe('updateNotifyTime', () => {
     const client = makeClient();
     mockGetSupabase.mockReturnValue(client as never);
     await updateNotifyTime('dev-1', null);
-    const payload = client.update.mock.calls[0]![0] as Record<string, unknown>;
-    expect('notify_at' in payload).toBe(true);
-    expect(payload.notify_at).toBeNull();
+    const args = client.rpc.mock.calls[0]![1] as Record<string, unknown>;
+    expect('p_notify_at' in args).toBe(true);
+    expect(args.p_notify_at).toBeNull();
   });
 
-  it('selects the affected id to detect a 0-row update (row missing) and resolves', async () => {
-    // A cached token means registration was *attempted*, not that the row exists — a prior
-    // register_device RPC may have failed. The update must detect 0 rows, like linkDeviceToUser.
+  it('resolves when the RPC reports no row updated (data false)', async () => {
     storage.set(TOKEN_KEY, 'tok-cached');
     const client = makeClient();
-    client.select.mockResolvedValue({ data: [], error: null });
+    client.rpc.mockResolvedValue({ data: false, error: null });
     mockGetSupabase.mockReturnValue(client as never);
     await expect(updateNotifyTime('dev-1', '09:00')).resolves.toBeUndefined();
-    expect(client.select).toHaveBeenCalledWith('id');
   });
 
-  it('resolves without throwing when the update errors', async () => {
+  it('resolves without throwing when the RPC errors', async () => {
     storage.set(TOKEN_KEY, 'tok-cached');
     const client = makeClient();
-    client.select.mockResolvedValue({ data: null, error: { message: 'boom' } });
+    client.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
     mockGetSupabase.mockReturnValue(client as never);
     await expect(updateNotifyTime('dev-1', '09:00')).resolves.toBeUndefined();
   });
