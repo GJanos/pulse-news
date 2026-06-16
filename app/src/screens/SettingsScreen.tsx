@@ -34,7 +34,37 @@ export default function SettingsScreen({
   embedded = false,
 }: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
-  const prefs = useAppStore((s) => s.prefs);
+  // Subscribe to each rendered field individually (not the whole prefs object) so a
+  // setPref that changes an unrelated field — e.g. toggling a region in RegionPicker —
+  // doesn't re-render this entire screen.
+  const themeId = useAppStore((s) => s.prefs.theme);
+  const aesId = useAppStore((s) => s.prefs.aesthetic);
+  const notifyTime = useAppStore((s) => s.prefs.notifyTime);
+  const showGlobalHeadlines = useAppStore((s) => s.prefs.showGlobalHeadlines);
+  const globalHeadlineCount = useAppStore((s) => s.prefs.globalHeadlineCount);
+  const historyDays = useAppStore((s) => s.prefs.historyDays);
+  const showSummaries = useAppStore((s) => s.prefs.showSummaries);
+  const openLinksIn = useAppStore((s) => s.prefs.openLinksIn);
+  const imagesEnabled = useAppStore((s) => s.prefs.imagesEnabled);
+  const photoCount = useAppStore((s) => s.prefs.photoCount);
+  const regionStyle = useAppStore((s) => s.prefs.regionStyle);
+  const showCurrencyRates = useAppStore((s) => s.prefs.showCurrencyRates);
+  const baseCurrency = useAppStore((s) => s.prefs.baseCurrency);
+  const prefs = {
+    theme: themeId,
+    aesthetic: aesId,
+    notifyTime,
+    showGlobalHeadlines,
+    globalHeadlineCount,
+    historyDays,
+    showSummaries,
+    openLinksIn,
+    imagesEnabled,
+    photoCount,
+    regionStyle,
+    showCurrencyRates,
+    baseCurrency,
+  };
   const session = useAppStore((s) => s.session);
   const notificationsEnabled = useAppStore((s) => s.notificationsEnabled);
   const setPref = useAppStore((s) => s.setPref);
