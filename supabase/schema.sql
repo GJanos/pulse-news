@@ -26,17 +26,15 @@ ALTER TABLE devices ADD CONSTRAINT devices_fcm_token_key UNIQUE (fcm_token);
 
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 
--- SELECT required by PostgREST: upsert uses RETURNING internally even without .select().
--- Cron reads all FCM tokens via the secret key (bypasses RLS).
--- INSERT/UPDATE open to the publishable key (MVP); see TODO.md V2 for Edge Function upgrade.
-CREATE POLICY "device self-select"
-  ON devices FOR SELECT USING (true);
-
-CREATE POLICY "device self-register"
-  ON devices FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "device self-update"
-  ON devices FOR UPDATE USING (true) WITH CHECK (true);
+-- All client writes go through SECURITY DEFINER RPCs (register_device,
+-- update_notify_time, link_device_to_user); the cron reads via the service-role
+-- key, which bypasses RLS. No open policy is defined, so RLS denies every direct
+-- anon/authenticated SELECT/INSERT/UPDATE — closing publishable-key token
+-- harvesting and blind tampering. DROP IF EXISTS keeps re-applying this file
+-- idempotent against a database that still carries the old open policies.
+DROP POLICY IF EXISTS "device self-select"   ON devices;
+DROP POLICY IF EXISTS "device self-register" ON devices;
+DROP POLICY IF EXISTS "device self-update"   ON devices;
 
 -- register_device — the canonical device-registration write path (app + cron both call it).
 -- Keeps `id` (stable per install) as the upsert conflict target — correct for the frequent
@@ -72,6 +70,58 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION register_device(uuid, text, uuid) TO anon, authenticated, service_role;
+
+-- update_notify_time — the only path for the app to change a device's notify_at.
+-- Definer so it works with the publishable key against the now-policyless table.
+-- Keyed by the per-install device UUID (an unguessable capability). Returns FOUND
+-- so the app can warn when the row does not exist yet (registration not finished).
+CREATE OR REPLACE FUNCTION update_notify_time(p_id uuid, p_notify_at time)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE devices
+    SET notify_at = p_notify_at, updated_at = now()
+    WHERE id = p_id;
+  RETURN FOUND;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION update_notify_time(uuid, time) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION update_notify_time(uuid, time) TO anon, authenticated, service_role;
+
+-- link_device_to_user — stamps the auth link onto a device row. user_id is NOT a
+-- parameter: it is derived from the caller's JWT via auth.uid(), so a device can
+-- only ever be linked to the authenticated caller's own identity. Granted to
+-- authenticated only (the app calls this exclusively post-login). Returns FOUND so
+-- the app's retry can wait for the row to appear.
+CREATE OR REPLACE FUNCTION link_device_to_user(p_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'link_device_to_user requires an authenticated user';
+  END IF;
+  UPDATE devices
+    SET user_id = v_uid, updated_at = now()
+    WHERE id = p_id;
+  RETURN FOUND;
+END;
+$$;
+
+-- Revoke anon explicitly, not just PUBLIC: Supabase's ALTER DEFAULT PRIVILEGES
+-- auto-grants EXECUTE on every new public function directly to anon (as well as
+-- authenticated/service_role), so REVOKE FROM PUBLIC alone would leave anon able to
+-- call this. Same reason peek/claim revoke from anon above. authenticated keeps it.
+REVOKE EXECUTE ON FUNCTION link_device_to_user(uuid) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION link_device_to_user(uuid) TO authenticated, service_role;
 
 
 -- ============================================================
