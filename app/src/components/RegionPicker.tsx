@@ -110,13 +110,18 @@ export default function RegionPicker(): React.ReactElement {
   const leftPill =
     mode === 'reorder'
       ? {
-          label: 'All',
+          label: allSelected ? 'None' : 'All',
           onPress: () => {
-            if (allSelected) return;
             LayoutAnimation.configureNext(LAYOUT_ANIM);
-            commit(new Set(REGIONS.map((r) => r.region)));
+            if (!allSelected) {
+              commit(new Set(REGIONS.map((r) => r.region)));
+              return;
+            }
+            // "None" keeps a single region — the digest must never go empty.
+            const first = orderedRegions[0]?.region;
+            if (first) commit(new Set([first]));
           },
-          active: allSelected,
+          active: false,
         }
       : mode === 'tune'
         ? { label: 'Done', onPress: () => setMode('normal'), active: true }
