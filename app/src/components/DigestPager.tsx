@@ -339,13 +339,15 @@ export default React.memo(function DigestPager({
     (w: number) => {
       if (w === prevContentWidth.current) return;
       prevContentWidth.current = w;
-      const { screen: sc, dayIndex: di, prefs } = useAppStore.getState();
-      const max = maxDayIndexFor(prefs.historyDays);
-      const target = sc === 'settings' ? settingsPage(max) : pageForDay(di, max);
+      // Use the rendered (possibly frozen) maxDayIndex, not live historyDays, so the
+      // re-pin matches the page layout even if width changed for another reason (e.g.
+      // rotation) while a history-days edit is still pending in Settings.
+      const { screen: sc, dayIndex: di } = useAppStore.getState();
+      const target = sc === 'settings' ? settingsPage(maxDayIndex) : pageForDay(di, maxDayIndex);
       currentPage.current = target;
       scrollRef.current?.scrollTo({ x: target * W, animated: false });
     },
-    [W],
+    [W, maxDayIndex],
   );
 
   // Timestamp of the last settle on a day page; gates swipe-entry into settings
