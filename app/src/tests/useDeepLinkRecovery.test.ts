@@ -68,17 +68,33 @@ describe('parseRecoveryPayload', () => {
 
   it('extracts PKCE code from query string', () => {
     const result = parseRecoveryPayload('pulse://reset-password?code=abc123def');
-    expect(result).toEqual({ type: 'pkce', code: 'abc123def' });
+    expect(result).toEqual({ type: 'pkce', code: 'abc123def', isRecovery: true });
   });
 
   it('decodes URL-encoded PKCE code', () => {
     const result = parseRecoveryPayload('pulse://reset-password?code=abc%3D%3D');
-    expect(result).toEqual({ type: 'pkce', code: 'abc==' });
+    expect(result).toEqual({ type: 'pkce', code: 'abc==', isRecovery: true });
   });
 
   it('extracts PKCE code from &-separated query string', () => {
     const result = parseRecoveryPayload('pulse://reset-password?foo=bar&code=xyz789');
-    expect(result).toEqual({ type: 'pkce', code: 'xyz789' });
+    expect(result).toEqual({ type: 'pkce', code: 'xyz789', isRecovery: true });
+  });
+
+  it('extracts PKCE code from a confirm URL as non-recovery', () => {
+    const result = parseRecoveryPayload('pulse://confirm?code=confirm123');
+    expect(result).toEqual({ type: 'pkce', code: 'confirm123', isRecovery: false });
+  });
+
+  it('marks implicit confirm tokens as non-recovery', () => {
+    const url = 'pulse://confirm#access_token=tok1&refresh_token=tok2&type=signup';
+    const result = parseRecoveryPayload(url);
+    expect(result).toEqual({
+      type: 'implicit',
+      accessToken: 'tok1',
+      refreshToken: 'tok2',
+      isRecovery: false,
+    });
   });
 
   it('extracts implicit tokens from hash fragment', () => {
@@ -168,6 +184,20 @@ describe('useDeepLinkRecovery', () => {
 
     expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('evt-code-456');
     expect(onRecoveryStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirm path: exchanges code but does NOT start recovery', async () => {
+    const confirmUrl = 'pulse://confirm?code=confirm-pkce-code';
+    mockGetInitialURL.mockResolvedValue(confirmUrl);
+
+    const supabase = makeSupabase();
+    const onRecoveryStart = jest.fn();
+
+    runHook(supabase, onRecoveryStart);
+    await new Promise(setImmediate);
+
+    expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('confirm-pkce-code');
+    expect(onRecoveryStart).not.toHaveBeenCalled();
   });
 
   it('implicit path: calls setSession and onRecoveryStart when type=recovery', async () => {

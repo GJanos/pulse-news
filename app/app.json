@@ -2,6 +2,7 @@
   "expo": {
     "name": "Pulse News",
     "slug": "pulse-news",
+    "scheme": "pulse",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon-dark.png",
@@ -25,6 +26,7 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "plugins": [
+      "./plugins/withNavigationBarContrast",
       "@react-native-firebase/app",
       [
         "expo-build-properties",

@@ -5,17 +5,21 @@ import { getLogger } from '../logger';
 
 const log = getLogger('useDeepLinkRecovery');
 
+const RECOVERY_PREFIX = 'pulse://reset-password';
+const CONFIRM_PREFIX = 'pulse://confirm';
+
 type RecoveryPayload =
-  | { type: 'pkce'; code: string }
+  | { type: 'pkce'; code: string; isRecovery: boolean }
   | { type: 'implicit'; accessToken: string; refreshToken: string; isRecovery: boolean };
 
 export function parseRecoveryPayload(url: string): RecoveryPayload | null {
-  if (!url.startsWith('pulse://reset-password')) {
+  const isRecoveryUrl = url.startsWith(RECOVERY_PREFIX);
+  if (!isRecoveryUrl && !url.startsWith(CONFIRM_PREFIX)) {
     return null;
   }
   const codeMatch = url.match(/[?&]code=([^&#]+)/);
   if (codeMatch?.[1]) {
-    return { type: 'pkce', code: decodeURIComponent(codeMatch[1]) };
+    return { type: 'pkce', code: decodeURIComponent(codeMatch[1]), isRecovery: isRecoveryUrl };
   }
   const hash = url.split('#')[1] ?? '';
   const params = new URLSearchParams(hash);
@@ -26,7 +30,7 @@ export function parseRecoveryPayload(url: string): RecoveryPayload | null {
       type: 'implicit',
       accessToken,
       refreshToken,
-      isRecovery: params.get('type') === 'recovery',
+      isRecovery: isRecoveryUrl && params.get('type') === 'recovery',
     };
   }
   return null;
@@ -55,8 +59,14 @@ export function useDeepLinkRecovery(
 
       log.info(`deep link received: ${url}`);
       if (payload.type === 'pkce') {
-        log.info('recovery code received (PKCE) — exchanging for session');
-        onRecoveryStart();
+        if (payload.isRecovery) {
+          log.info('recovery code received (PKCE) — exchanging for session');
+          onRecoveryStart();
+        } else {
+          // Sign-up confirmation: exchange establishes the session and the
+          // resulting SIGNED_IN event routes the user into the app.
+          log.info('confirmation code received (PKCE) — exchanging for session');
+        }
         const { error } = await supabase.auth.exchangeCodeForSession(payload.code);
         if (!mounted || requestId !== requestIdRef.current) return;
         if (error) log.warn(`exchangeCodeForSession failed: ${error.message}`);

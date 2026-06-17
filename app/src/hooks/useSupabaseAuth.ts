@@ -37,7 +37,11 @@ export async function signIn(email: string, pw: string): Promise<string | null> 
 export async function signUp(email: string, pw: string): Promise<SignUpResult> {
   const client = getSupabase();
   if (!client) return { error: 'Supabase not configured', needsConfirmation: false };
-  const { data, error } = await client.auth.signUp({ email, password: pw });
+  const { data, error } = await client.auth.signUp({
+    email,
+    password: pw,
+    options: { emailRedirectTo: 'pulse://confirm' },
+  });
   if (error) {
     log.warn(`signUp failed: ${error.message}`);
     return { error: error.message, needsConfirmation: false };

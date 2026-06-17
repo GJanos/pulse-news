@@ -41,7 +41,10 @@ export default function LoginScreen({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // Android: rely on the manifest's adjustResize instead of 'height' — the
+      // 'height' behavior fights adjustResize and leaves an uncovered strip at the
+      // bottom that reveals the native window background (theme-mismatched band).
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: theme.bg }}
     >
       <ScrollView
