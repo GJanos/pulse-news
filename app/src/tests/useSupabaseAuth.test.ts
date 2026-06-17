@@ -80,6 +80,16 @@ describe('signUp', () => {
     const result = await signUp('a@b.com', 'pass123');
     expect(result).toEqual({ error: null, needsConfirmation: false });
   });
+
+  it('passes emailRedirectTo pulse://confirm', async () => {
+    mockSignUp.mockResolvedValue({ data: { session: null }, error: null });
+    await signUp('a@b.com', 'pass123');
+    expect(mockSignUp).toHaveBeenCalledWith({
+      email: 'a@b.com',
+      password: 'pass123',
+      options: { emailRedirectTo: 'pulse://confirm' },
+    });
+  });
 });
 
 describe('resetPassword', () => {
