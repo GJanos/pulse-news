@@ -29,6 +29,7 @@ module.exports = {
     '^react-native-safe-area-context$': '<rootDir>/__mocks__/react-native-safe-area-context.ts',
     '^expo-navigation-bar$': '<rootDir>/__mocks__/expo-navigation-bar.ts',
     '^expo-web-browser$': '<rootDir>/__mocks__/expo-web-browser.ts',
+    '^expo-linking$': '<rootDir>/__mocks__/expo-linking.ts',
     '^react-native-webview$': '<rootDir>/__mocks__/react-native-webview.tsx',
   },
 };
