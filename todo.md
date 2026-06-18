@@ -2,16 +2,6 @@
 
 ## V1
 
-**Phase 1 — Harden what's deployed**
-
-- [ ] Tighten `devices` table RLS — replace `USING (true)` / `WITH CHECK (true)` with `user_id = auth.uid()`, or make `/api/account` the only writer and lock the table down
-- _Open Q: do clients ever write `devices` directly, or can the route be the sole writer?_
-
-**Phase 2 — Observability: cost logging refactor**
-
-- [ ] Keep human-readable log lines, but have each cron run emit one structured JSON object of all logged/cost data, shaped for HTTP transmission (~80% there; needs a consistent schema + cleanup)
-- _Open Q: where does the JSON go — route response, Supabase table, or external sink? That drives the schema._
-
 **Phase 3 — Image durability (server-side proxy/cache)**
 
 Client caching (expo-image) is already solved; this is purely source-URL rot.

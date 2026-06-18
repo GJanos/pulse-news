@@ -40,7 +40,7 @@ async function main() {
   digests.forEach((d) => log.info(`  ${d.region.padEnd(20)} ${d.headlines.length} headlines`));
 
   log.info('\nRunning global ranking…');
-  const globalHeadlines = await rankGlobalHeadlines(digests, config);
+  const { headlines: globalHeadlines } = await rankGlobalHeadlines(digests, config);
   printGlobalHeadlines(globalHeadlines);
 }
 

@@ -208,7 +208,8 @@ describe('rankGlobalHeadlines', () => {
     const digests = makeDigests(['Hungary', 'United States'], 3);
 
     const result = await rankGlobalHeadlines(digests, config);
-    expect(result).toEqual([]);
+    expect(result.headlines).toEqual([]);
+    expect(result.usage).toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -217,7 +218,8 @@ describe('rankGlobalHeadlines', () => {
     const digests = makeDigests(['Hungary'], 0);
 
     const result = await rankGlobalHeadlines(digests, config);
-    expect(result).toEqual([]);
+    expect(result.headlines).toEqual([]);
+    expect(result.usage).toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -228,7 +230,8 @@ describe('rankGlobalHeadlines', () => {
     const digests = makeDigests(['Hungary', 'United States'], 2);
 
     const result = await rankGlobalHeadlines(digests, config);
-    expect(result).toEqual([]);
+    expect(result.headlines).toEqual([]);
+    expect(result.usage).toBeNull();
   });
 
   it('selects globally important headlines in a single pass when candidates ≤ chunkSize', async () => {
@@ -240,12 +243,19 @@ describe('rankGlobalHeadlines', () => {
     mockCreate.mockResolvedValueOnce(makeGlobalResponse([1, 3]));
 
     const result = await rankGlobalHeadlines(digests, config);
-    expect(result).toHaveLength(2);
-    expect(result[0]!.region).toBe('Hungary'); // candidate 1 is Hungary headline 1
-    expect(result[1]!.region).toBe('United States'); // candidate 3 is US headline 1
+    expect(result.headlines).toHaveLength(2);
+    expect(result.headlines[0]!.region).toBe('Hungary'); // candidate 1 is Hungary headline 1
+    expect(result.headlines[1]!.region).toBe('United States'); // candidate 3 is US headline 1
     // imageUrl must thread through to the global headline so it persists in the global digest.
-    expect(result[0]!.imageUrl).toBe('https://img.example.com/Hungary/1.jpg');
-    expect(result[1]!.imageUrl).toBe('https://img.example.com/United States/1.jpg');
+    expect(result.headlines[0]!.imageUrl).toBe('https://img.example.com/Hungary/1.jpg');
+    expect(result.headlines[1]!.imageUrl).toBe('https://img.example.com/United States/1.jpg');
+    // usage from the single pass is surfaced for cost reporting.
+    expect(result.usage).toEqual({
+      promptTokens: 200,
+      completionTokens: 30,
+      totalTokens: 230,
+      costUsd: expect.any(Number),
+    });
   });
 
   it('runs two rounds when candidates exceed chunkSize', async () => {
@@ -263,8 +273,15 @@ describe('rankGlobalHeadlines', () => {
     mockCreate.mockResolvedValueOnce(makeGlobalResponse([1, 2]));
 
     const result = await rankGlobalHeadlines(digests, config);
-    expect(result).toHaveLength(2);
+    expect(result.headlines).toHaveLength(2);
     expect(mockCreate).toHaveBeenCalledTimes(3); // 2 chunk passes + 1 final pass
+    // usage is summed across all three passes (200+30 tokens each).
+    expect(result.usage).toEqual({
+      promptTokens: 600,
+      completionTokens: 90,
+      totalTokens: 690,
+      costUsd: expect.any(Number),
+    });
   });
 
   it('returns empty array and does not throw when the SDK throws', async () => {
@@ -273,6 +290,7 @@ describe('rankGlobalHeadlines', () => {
     mockCreate.mockRejectedValueOnce(new Error('rate limit'));
 
     const result = await rankGlobalHeadlines(digests, config);
-    expect(result).toEqual([]);
+    expect(result.headlines).toEqual([]);
+    expect(result.usage).toBeNull();
   });
 });

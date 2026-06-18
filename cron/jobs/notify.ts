@@ -1,6 +1,6 @@
 import { loadPulseConfig } from '../src/config';
 import { sendDueNotifications } from '../src/notify';
-import { getLogger } from '../src/logging';
+import { getLogger, formatError } from '../src/logging';
 
 /**
  * GitHub Actions cron job (.github/workflows/notify.yml) — notify devices whose
@@ -17,10 +17,11 @@ async function main(): Promise<void> {
   const log = getLogger('notify-cron');
 
   try {
+    log.info('Starting due-notification run');
     const { sent, total } = await sendDueNotifications();
     log.info(`Sent ${sent}/${total} notifications`);
   } catch (err) {
-    log.error(`Unhandled error: ${String(err)}`);
+    log.error(`Unhandled error: ${formatError(err)}`);
     process.exit(1);
   }
 

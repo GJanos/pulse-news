@@ -263,3 +263,32 @@ $$;
 -- never be reachable with the public anon key. Revoke the default PUBLIC grant.
 REVOKE EXECUTE ON FUNCTION claim_due_notifications() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION claim_due_notifications() TO service_role;
+
+-- ============================================================
+-- pipeline_runs
+-- One row per daily-digest run — durable observability/cost record written by
+-- jobs/daily-digest.ts (see cron/src/runReport.ts, RunReport `pulse.run.v1`).
+-- Promoted scalar columns (run_at, status, total_cost_usd, total_tokens,
+-- regions_*) make cost-over-time queries cheap; the full structured report
+-- (per-region quality, cost breakdown, notify outcome) lives in `report` jsonb.
+--   SELECT run_at, status, total_cost_usd, total_tokens
+--     FROM pipeline_runs ORDER BY run_at DESC LIMIT 30;
+-- Only the cron service-role key writes/reads this; the service role bypasses
+-- RLS, so no policy is defined and the table stays private (no client read path).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+  id                BIGINT        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  run_at            TIMESTAMPTZ   NOT NULL,
+  status            TEXT          NOT NULL,
+  total_cost_usd    NUMERIC(10,6) NOT NULL,
+  total_tokens      INTEGER       NOT NULL,
+  regions_succeeded SMALLINT      NOT NULL,
+  regions_failed    SMALLINT      NOT NULL,
+  duration_ms       INTEGER,
+  report            JSONB         NOT NULL,
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS pipeline_runs_run_at_idx ON pipeline_runs (run_at DESC);
+
+ALTER TABLE pipeline_runs ENABLE ROW LEVEL SECURITY;

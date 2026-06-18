@@ -1,13 +1,20 @@
 import { loadPulseConfig, createSource } from '../src/config';
 import { persistDigests, persistGlobalDigest, buildClient, dispatchFcm } from '../src/notify';
 import { rankGlobalHeadlines } from '../src/rankHeadlines';
-import { getLogger } from '../src/logging';
+import { getLogger, formatError } from '../src/logging';
+import type { DigestUsage } from '../src/types';
 import {
   buildRunLog,
   deduplicateAcrossDigests,
   runFetchPipeline,
   writeRunLog,
 } from '../src/pipeline';
+import {
+  buildRunReport,
+  formatRunReportSummary,
+  persistRunReport,
+  type NotifyOutcome,
+} from '../src/runReport';
 
 /**
  * GitHub Actions cron job (.github/workflows/daily-digest.yml) — fetch all
@@ -25,6 +32,8 @@ async function main(): Promise<void> {
   const source = createSource(config);
 
   try {
+    log.info(`Starting daily digest — ${config.api.regions.length} region(s) configured`);
+
     const {
       resolvedRegions,
       digests: fetchedDigests,
@@ -34,7 +43,7 @@ async function main(): Promise<void> {
     const digests = deduplicateAcrossDigests(fetchedDigests);
 
     errors.forEach((error) =>
-      log.error(`Region fetch failed: ${error.region}: ${String(error.reason)}`),
+      log.error(`Region fetch failed: ${error.region}: ${formatError(error.reason)}`),
     );
 
     if (digests.length === 0) {
@@ -43,8 +52,10 @@ async function main(): Promise<void> {
 
     await persistDigests(digests, config);
 
+    let globalRankingUsage: DigestUsage | null = null;
     if (config.api.ranking.global.enabled) {
-      const globalHeadlines = await rankGlobalHeadlines(digests, config);
+      const { headlines: globalHeadlines, usage } = await rankGlobalHeadlines(digests, config);
+      globalRankingUsage = usage;
 
       if (globalHeadlines.length > 0) {
         await persistGlobalDigest(globalHeadlines);
@@ -58,28 +69,40 @@ async function main(): Promise<void> {
       .select('fcm_token')
       .is('notify_at', null);
 
+    let notify: NotifyOutcome = { devicesTargeted: 0, sent: 0, failed: 0 };
     if (error) {
       log.warn(`Failed to read null-notify_at devices: ${error.message}`);
     } else if (devices?.length) {
       const tokens = devices.map((d) => d.fcm_token as string);
       const regions = digests.map((d) => d.region).join(',');
 
-      await dispatchFcm(tokens, regions);
+      const result = await dispatchFcm(tokens, regions);
+      notify = {
+        devicesTargeted: result.total,
+        sent: result.sent,
+        failed: result.total - result.sent,
+      };
     }
 
-    const totalTokens = digests.reduce((sum, d) => sum + (d.usage?.totalTokens ?? 0), 0);
-
-    log.info(`Done — ${digests.length}/${resolvedRegions.length} regions, ${totalTokens} tokens`);
+    const report = buildRunReport({
+      config,
+      resolvedRegions,
+      digests,
+      errors,
+      startTime,
+      globalRankingUsage,
+      notify,
+    });
+    log.info(formatRunReportSummary(report));
+    await persistRunReport(report);
 
     if (config.log.qualityLog) {
       const runLog = buildRunLog(config, resolvedRegions, digests, errors, startTime);
-
       const logPath = writeRunLog(runLog, resolvedRegions);
-
       log.info(`Quality log → ${logPath}`);
     }
   } catch (err) {
-    log.error(`Unhandled error: ${String(err)}`);
+    log.error(`Unhandled error: ${formatError(err)}`);
     process.exit(1);
   }
 
