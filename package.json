@@ -19,7 +19,7 @@
   "lint-staged": {
     "cron/**/*.ts": [
       "prettier --write",
-      "bash -c 'cd cron && npx eslint --ext .ts src api jobs'",
+      "bash -c 'cd cron && npx eslint --ext .ts src jobs e2e'",
       "bash -c 'npx tsc --noEmit --project cron/tsconfig.json'"
     ],
     "app/**/*.{ts,tsx}": [

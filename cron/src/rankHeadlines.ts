@@ -72,6 +72,23 @@ export interface RankingResult {
   usage: DigestUsage | null;
 }
 
+export interface GlobalRankingResult {
+  headlines: GlobalHeadline[];
+  /** Combined usage across every Claude pass (round 1 chunks + round 2). Null when no call was made. */
+  usage: DigestUsage | null;
+}
+
+/** Sum a list of usage records into one. Returns null when the list is empty. */
+function sumUsages(usages: DigestUsage[]): DigestUsage | null {
+  if (usages.length === 0) return null;
+  return usages.reduce((acc, u) => ({
+    promptTokens: acc.promptTokens + u.promptTokens,
+    completionTokens: acc.completionTokens + u.completionTokens,
+    totalTokens: acc.totalTokens + u.totalTokens,
+    costUsd: acc.costUsd + u.costUsd,
+  }));
+}
+
 /**
  * Reorders headlines by country importance using Claude.
  * Falls back to original order if the ranking call fails or returns an invalid result.
@@ -172,7 +189,7 @@ async function globalRankingPass(
   count: number,
   model: string,
   maxTokens: number,
-): Promise<GlobalHeadline[]> {
+): Promise<{ headlines: GlobalHeadline[]; usage: DigestUsage }> {
   const log = getLogger('rankHeadlines');
   const actualCount = Math.min(count, candidates.length);
 
@@ -187,6 +204,12 @@ async function globalRankingPass(
 
   const { input_tokens, output_tokens } = response.usage;
   const costUsd = input_tokens * COST_PER_INPUT_TOKEN + output_tokens * COST_PER_OUTPUT_TOKEN;
+  const usage: DigestUsage = {
+    promptTokens: input_tokens,
+    completionTokens: output_tokens,
+    totalTokens: input_tokens + output_tokens,
+    costUsd,
+  };
   log.info(
     `Global pass — ${candidates.length} candidates → ${actualCount} — ${input_tokens}+${output_tokens} tokens | $${costUsd.toFixed(6)}`,
   );
@@ -211,7 +234,7 @@ async function globalRankingPass(
     seen.add(idx);
   }
 
-  return indices.map((i) => {
+  const headlines = indices.map((i) => {
     const c = candidates[i - 1]!;
     return {
       title: c.title,
@@ -223,6 +246,7 @@ async function globalRankingPass(
       imageUrl: c.imageUrl,
     };
   });
+  return { headlines, usage };
 }
 
 /**
@@ -234,9 +258,9 @@ async function globalRankingPass(
 export async function rankGlobalHeadlines(
   digests: RegionDigest[],
   config: PulseConfig,
-): Promise<GlobalHeadline[]> {
+): Promise<GlobalRankingResult> {
   const { enabled, count, model, maxTokens, chunkSize } = config.api.ranking.global;
-  if (!enabled) return [];
+  if (!enabled) return { headlines: [], usage: null };
 
   const log = getLogger('rankHeadlines');
   const candidates: Candidate[] = digests.flatMap((d) =>
@@ -250,21 +274,21 @@ export async function rankGlobalHeadlines(
       imageUrl: h.imageUrl,
     })),
   );
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0) return { headlines: [], usage: null };
 
   const client = getClient();
   if (!client) {
     log.warn('ANTHROPIC_API_KEY not set — skipping global ranking');
-    return [];
+    return { headlines: [], usage: null };
   }
 
   const actualCount = Math.min(count, candidates.length);
 
   try {
     if (candidates.length <= chunkSize) {
-      const result = await globalRankingPass(client, candidates, actualCount, model, maxTokens);
-      log.info(`Global ranked: ${result.map((h) => h.region).join(' > ')}`);
-      return result;
+      const pass = await globalRankingPass(client, candidates, actualCount, model, maxTokens);
+      log.info(`Global ranked: ${pass.headlines.map((h) => h.region).join(' > ')}`);
+      return { headlines: pass.headlines, usage: pass.usage };
     }
 
     const chunks: Candidate[][] = [];
@@ -279,21 +303,23 @@ export async function rankGlobalHeadlines(
       `Global ranking round 1: ${candidates.length} candidates → ${chunks.length} chunks, keeping ${survivorsPerChunk} each`,
     );
 
-    const survivorGroups = await Promise.all(
+    const survivorPasses = await Promise.all(
       chunks.map((ch) =>
         globalRankingPass(client, ch, Math.min(survivorsPerChunk, ch.length), model, maxTokens),
       ),
     );
-    const survivors = survivorGroups.flat();
+    const survivors = survivorPasses.flatMap((p) => p.headlines);
 
     log.info(`Global ranking round 2: ${survivors.length} survivors → ${actualCount} final`);
-    const result = await globalRankingPass(client, survivors, actualCount, model, maxTokens);
-    log.info(`Global ranked: ${result.map((h) => h.region).join(' > ')}`);
-    return result;
+    const finalPass = await globalRankingPass(client, survivors, actualCount, model, maxTokens);
+    log.info(`Global ranked: ${finalPass.headlines.map((h) => h.region).join(' > ')}`);
+
+    const usage = sumUsages([...survivorPasses.map((p) => p.usage), finalPass.usage]);
+    return { headlines: finalPass.headlines, usage };
   } catch (err) {
     log.warn(
       `Global ranking failed (${err instanceof Error ? err.message : String(err)}) — skipping global section`,
     );
-    return [];
+    return { headlines: [], usage: null };
   }
 }

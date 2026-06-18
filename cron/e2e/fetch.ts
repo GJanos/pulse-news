@@ -49,7 +49,7 @@ async function main() {
   printTotals(retryStats, resolvedRegions.length, fetchUsage, rankingUsage, config.api.fetch.count);
 
   if (config.api.ranking.global.enabled) {
-    const globalHeadlines = await rankGlobalHeadlines(digests, config);
+    const { headlines: globalHeadlines } = await rankGlobalHeadlines(digests, config);
     printGlobalHeadlines(globalHeadlines);
   }
 

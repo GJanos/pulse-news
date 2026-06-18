@@ -34,7 +34,7 @@ async function main() {
   await persistDigests(digests, config);
 
   if (config.api.ranking.global.enabled) {
-    const globalHeadlines = await rankGlobalHeadlines(digests, config);
+    const { headlines: globalHeadlines } = await rankGlobalHeadlines(digests, config);
     if (globalHeadlines.length > 0) {
       await persistGlobalDigest(globalHeadlines);
     }

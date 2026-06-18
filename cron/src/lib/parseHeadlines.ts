@@ -112,7 +112,7 @@ export async function parseHeadlines(
     if (seenInBatch.has(headline.url)) return false;
     const slug = urlSlug(headline.url);
     if (slug && usedSlugs.has(slug)) {
-      log.info(`Slug duplicate filtered: ${headline.url}`);
+      log.debug(`Slug duplicate filtered: ${headline.url}`);
       return false;
     }
     seenInBatch.add(headline.url);
