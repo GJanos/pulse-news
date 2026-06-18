@@ -26,10 +26,10 @@ npm install
 
 Copy `.env.example` to `.env` inside `app/` and fill in:
 
-| Variable                               | Description              |
-| -------------------------------------- | ------------------------ |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Supabase project URL     |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key |
+| Variable                   | Description                     |
+| -------------------------- | ------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL            |
+| `EXPO_PUBLIC_SUPABASE_KEY` | Supabase publishable (anon) key |
 
 FCM config lives in `app/google-services.json` (referenced from `app.json` as `./google-services.json`), not env vars. The file is gitignored — never commit it.
 
