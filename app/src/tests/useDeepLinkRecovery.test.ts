@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type * as ReactNS from 'react';
-import { Linking } from 'react-native';
+import * as Linking from 'expo-linking';
 import { parseRecoveryPayload, useDeepLinkRecovery } from '../hooks/useDeepLinkRecovery';
 
-// Typed access to the auto-mocked Linking methods
+// expo-linking is mapped to __mocks__/expo-linking.ts via jest moduleNameMapper.
 const mockGetInitialURL = Linking.getInitialURL as jest.Mock;
 const mockAddEventListener = Linking.addEventListener as jest.Mock;
 

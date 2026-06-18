@@ -21,10 +21,10 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@pulse/shared": "file:../shared",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/source-serif-4": "^0.4.1",
+    "@pulse/shared": "file:../shared",
     "@react-native-firebase/app": "^24.0.0",
     "@react-native-firebase/messaging": "^24.0.0",
     "@supabase/supabase-js": "^2.106.2",
@@ -36,6 +36,7 @@
     "expo-crypto": "^56.0.4",
     "expo-font": "^56.0.5",
     "expo-image": "~56.0.10",
+    "expo-linking": "~56.0.14",
     "expo-navigation-bar": "^56.0.3",
     "expo-notifications": "~56.0.15",
     "expo-splash-screen": "^56.0.10",

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
+import * as Linking from 'expo-linking';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getLogger } from '../logger';
 
