@@ -26,75 +26,33 @@ npm install
 
 Copy `.env.example` to `.env` inside `app/` and fill in:
 
-| Variable                        | Description                     |
-| ------------------------------- | ------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL`      | Supabase project URL            |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon (publishable) key |
+| Variable                               | Description              |
+| -------------------------------------- | ------------------------ |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Supabase project URL     |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key |
 
-FCM config lives in `app/android/app/google-services.json`, not env vars.
-
----
-
-## Android dev setup on WSL2 (one-time)
-
-The Android SDK lives on Windows; WSL2 needs to reach it.
-
-**1. Add to `~/.bashrc`:**
-
-```bash
-export ANDROID_HOME=/mnt/c/Users/HP/AppData/Local/Android/Sdk
-export JAVA_HOME="/mnt/c/Program Files/Android/Android Studio/jbr"
-export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/emulator:$JAVA_HOME/bin
-```
-
-**2. Create an `adb` wrapper** so WSL2 uses the Windows ADB server (which can reach your phone):
-
-```bash
-mkdir -p ~/.local/bin
-cat > ~/.local/bin/adb << 'EOF'
-#!/bin/bash
-exec /mnt/c/Users/HP/AppData/Local/Android/Sdk/platform-tools/adb.exe "$@"
-EOF
-chmod +x ~/.local/bin/adb
-```
-
-**3. Pair your phone (one-time per device):**
-
-- Phone: Settings → Developer Options → Wireless debugging → **Pair device with pairing code**
-- Note the pairing port and 6-digit code
-- In Windows CMD (not WSL2):
-
-```cmd
-adb pair 192.168.64.4:<pairing-port>
-```
-
-Enter the code. You'll see `Successfully paired`.
+FCM config lives in `app/google-services.json` (referenced from `app.json` as `./google-services.json`), not env vars. The file is gitignored — never commit it.
 
 ---
 
 ## Connecting your phone (every session)
 
-Your phone's connection port changes each session. Run the helper script:
+Wireless debugging port changes each session. Use the helper script:
 
 ```bash
 ./scripts/adb-connect.sh
 ```
 
-Or manually — check the port in Settings → Developer Options → Wireless debugging, then in Windows CMD:
-
-```cmd
-adb connect 192.168.64.4:<connection-port>
-```
-
-Verify WSL2 sees it:
+Or manually — check the port in Settings → Developer Options → Wireless debugging, then:
 
 ```bash
-adb devices   # should list 192.168.64.4:<port>  device
+adb connect <phone-ip>:<connection-port>
+adb devices   # should list <phone-ip>:<port>  device
 ```
 
 ---
 
-## Running (added by app/foundation slice)
+## Running
 
 This app uses native modules (`@react-native-firebase/messaging`), so **Expo Go will not work** — a custom dev client is required.
 
@@ -112,8 +70,14 @@ npx expo start --dev-client     # subsequent runs — scan QR in the installed d
 ```bash
 npm run build     # tsc --noEmit (typecheck)
 npm run lint      # ESLint on src/
-npm test          # Jest (available after app/foundation slice)
+npm test          # Jest
 ```
+
+---
+
+## Navigation
+
+No React Navigation. The root `App.tsx` conditionally renders screens based on the Zustand `nav` slice (`splash` / `digest` / `settings` / `login`), gated by an `appState` machine (`booting` → `prefs-loading` → `ready`, plus `maintenance` and `update-required` stub screens). Nav state (screen + day index) persists to MMKV with a TTL; the open article is transient.
 
 ---
 
@@ -121,7 +85,9 @@ npm test          # Jest (available after app/foundation slice)
 
 **Digests:** cache-first (MMKV) with a configurable stale window for today. Notification tap forces a full remote fetch. Past dates are immutable — never re-fetched.
 
-**Auth:** `useSupabaseAuth` manages session via Supabase. MMKV persists the session across restarts. Password-reset deep links (`pulse://reset-password`) use PKCE or implicit token flow depending on what Supabase sends.
+**Auth:** `useSupabaseAuth` manages session via Supabase. MMKV persists the session across restarts.
+
+**Deep links:** handled in `useDeepLinkRecovery` via `expo-linking` — both cold-start (`Linking.getInitialURL()`) and warm (`addEventListener('url', …)`). Two schemes are recognized: `pulse://reset-password` (password recovery → routes to the reset screen) and `pulse://confirm` (sign-up confirmation → establishes the session, which routes into the app). Each is exchanged via PKCE (`exchangeCodeForSession`) or implicit token flow (`setSession`) depending on what Supabase sends. Duplicate URLs are de-duped.
 
 **Preferences:** keyed on `session.user.id`. Local writes are immediate. Supabase push is batched — flushed on settings close and on app background.
 

@@ -1,6 +1,6 @@
 # Pulse — Cron Pipeline
 
-Daily digest pipeline: fetches regional headlines from Perplexity, stores results in Supabase, and fires FCM push notifications to registered devices.
+Daily digest pipeline: fetches regional headlines from Perplexity, ranks them with Claude, stores results in Supabase, and fires FCM push notifications to registered devices. Runs as GitHub Actions cron jobs (`.github/workflows/daily-digest.yml`, `.github/workflows/notify.yml`).
 
 ---
 
@@ -47,6 +47,7 @@ npm run e2e:countryRanking -- US GB DE      # per-region rank on selected region
 | Variable                | Description                                           |
 | ----------------------- | ----------------------------------------------------- |
 | `PERPLEXITY_API_KEY`    | Perplexity Sonar API key                              |
+| `ANTHROPIC_API_KEY`     | Claude API key (headline ranking)                     |
 | `SUPABASE_URL`          | Supabase project URL                                  |
 | `SUPABASE_SECRET_KEY`   | Service-role key (bypasses RLS)                       |
 | `FIREBASE_PROJECT_ID`   | Firebase project ID                                   |
@@ -70,17 +71,33 @@ loadPulseConfig() → createSource()
   → runFetchPipeline()
       → resolveRegions()
       → fetchDigest() × N  [Promise.allSettled, staggered]
-          → Perplexity retry loop
+          → Perplexity retry loop  [429/5xx, exponential backoff]
           → parseHeadlines() → URL filter + slug dedup + topic dedup
           → rankHeadlines()  [Claude — per-region reorder]
+  → deduplicateAcrossDigests()  [null out images shared across regions]
   → persistDigests()         [upsert to Supabase]
-  → rankGlobalHeadlines()    [Claude — cross-region top stories]
+  → rankGlobalHeadlines()    [Claude — cross-region top stories, if enabled]
   → persistGlobalDigest()
-  → sendNotifications()      [FCM multicast]
-  → writeRunLog()
+  → dispatchFcm()            [FCM multicast]
+  → buildRunReport() → formatRunReportSummary() (log line) → persistRunReport()  [→ pipeline_runs]
+  → writeRunLog()            [JSONL time-series, only if log.qualityLog]
 ```
 
-`api/daily-digest.ts` follows the same path but only FCM-pings devices with `notify_at = NULL`. `api/notify.ts` handles devices with a specific scheduled time.
+The two cron jobs share `runFetchPipeline`:
+
+- `jobs/daily-digest.ts` runs the full pipeline above, then FCM-pings devices with `notify_at = NULL` ("notify me when the digest is ready").
+- `jobs/notify.ts` runs every ~30 min and notifies devices whose `notify_at` falls in `(last_run_at, now]` — a catch-up window so no scheduled device is dropped when the cron fires irregularly.
+
+---
+
+## Run-report observability
+
+Every `daily-digest` run assembles a versioned `RunReport` (`schema: pulse.run.v1`) — the durable, queryable companion to the human-readable log lines. It aggregates region success/failure, headline counts, fetch + ranking token cost, notify outcome, and duration.
+
+- A one-line summary (`formatRunReportSummary`) is logged via Winston.
+- The full report is best-effort persisted to `public.pipeline_runs` (`persistRunReport`): columns `run_at`, `status` (`ok`/`partial`), `total_cost_usd`, `total_tokens`, `regions_succeeded`, `regions_failed`, `duration_ms`, plus the whole `report` as JSON. Persistence failures are logged and swallowed — observability never breaks the digest pipeline.
+
+Bump `schema` on any breaking shape change so downstream queries can branch on the version.
 
 ---
 
