@@ -12,18 +12,24 @@ const messagingMocks = {
 jest.mock('@react-native-firebase/messaging', () => messagingMocks);
 jest.mock('expo-notifications', () => ({
   setBadgeCountAsync: jest.fn().mockResolvedValue(undefined),
+  dismissAllNotificationsAsync: jest.fn().mockResolvedValue(undefined),
   setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
   AndroidImportance: { HIGH: 4 },
 }));
 
 import { Platform } from 'react-native';
-import { setBadgeCountAsync, setNotificationChannelAsync } from 'expo-notifications';
+import {
+  setBadgeCountAsync,
+  dismissAllNotificationsAsync,
+  setNotificationChannelAsync,
+} from 'expo-notifications';
 import {
   requestPushPermission,
   getFcmToken,
   getNotificationPermission,
   onFcmTokenRefresh,
   registerNotificationHandlers,
+  clearNotifications,
   ensureDefaultChannel,
   DEFAULT_CHANNEL_ID,
 } from '../../notifications/fcm';
@@ -147,6 +153,7 @@ describe('registerNotificationHandlers', () => {
     cb({ data: { type: 'daily_digest' } });
     expect(onDigest).toHaveBeenCalledTimes(1);
     expect(setBadgeCountAsync).toHaveBeenCalledWith(0);
+    expect(dismissAllNotificationsAsync).toHaveBeenCalled();
   });
 
   it('ignores non-digest messages', () => {
@@ -164,6 +171,7 @@ describe('registerNotificationHandlers', () => {
     cb({ data: { type: 'daily_digest' } });
     expect(onDigest).toHaveBeenCalledTimes(1);
     expect(setBadgeCountAsync).toHaveBeenCalledWith(0);
+    expect(dismissAllNotificationsAsync).toHaveBeenCalled();
   });
 
   it('does not crash or fire when the message has no data', () => {
@@ -226,5 +234,18 @@ describe('registerNotificationHandlers', () => {
     cleanup();
     expect(unsubBg).toHaveBeenCalled();
     expect(unsubFg).toHaveBeenCalled();
+  });
+});
+
+describe('clearNotifications', () => {
+  it('zeroes the badge and dismisses the tray in one call', async () => {
+    await clearNotifications();
+    expect(setBadgeCountAsync).toHaveBeenCalledWith(0);
+    expect(dismissAllNotificationsAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows a rejection without throwing', async () => {
+    (setBadgeCountAsync as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+    await expect(clearNotifications()).resolves.toBeUndefined();
   });
 });
