@@ -11,6 +11,7 @@ import {
 } from '@react-native-firebase/messaging';
 import {
   setBadgeCountAsync,
+  dismissAllNotificationsAsync,
   setNotificationChannelAsync,
   AndroidImportance,
 } from 'expo-notifications';
@@ -63,12 +64,20 @@ function isGranted(status: number): boolean {
   return status === AuthorizationStatus.AUTHORIZED || status === AuthorizationStatus.PROVISIONAL;
 }
 
-async function clearNotificationBadge(): Promise<void> {
+/**
+ * Reset the digest notification state: zero the app-icon badge AND dismiss any
+ * delivered notifications from the tray/notification center. Both are required —
+ * `setBadgeCountAsync(0)` only clears the numeric badge, leaving the tray entry;
+ * `dismissAllNotificationsAsync()` removes the entry itself. Called on every
+ * foreground (see `useNotificationClearing`) and on a `daily_digest` interaction.
+ * Best-effort: failures are logged, never thrown.
+ */
+export async function clearNotifications(): Promise<void> {
   try {
-    await setBadgeCountAsync(0);
-    log.debug('notification badge cleared');
+    await Promise.all([setBadgeCountAsync(0), dismissAllNotificationsAsync()]);
+    log.debug('notification badge + tray cleared');
   } catch (e: unknown) {
-    log.warn(`clearNotificationBadge failed: ${String(e)}`);
+    log.warn(`clearNotifications failed: ${String(e)}`);
   }
 }
 
@@ -114,7 +123,7 @@ export function onFcmTokenRefresh(onToken: (token: string) => void): () => void 
 /**
  * Wire the three notification-interaction handlers (background tap, killed-app
  * initial notification, foreground message). Each fires `onDailyDigest` only
- * for a `daily_digest` payload, after clearing the badge. Returns an unsubscribe.
+ * for a `daily_digest` payload, after clearing the badge + tray. Returns an unsubscribe.
  */
 export function registerNotificationHandlers(onDailyDigest: () => void): () => void {
   let cancelled = false;
@@ -123,7 +132,7 @@ export function registerNotificationHandlers(onDailyDigest: () => void): () => v
   const handle = (source: string, data: Record<string, unknown> | undefined): void => {
     log.info(`${source}: type=${String(data?.['type'])}`);
     if (data?.['type'] === DAILY_DIGEST_TYPE) {
-      void clearNotificationBadge();
+      void clearNotifications();
       onDailyDigest();
     }
   };

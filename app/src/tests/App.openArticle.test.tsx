@@ -37,7 +37,10 @@ jest.mock('@react-native-firebase/messaging', () => ({
   getInitialNotification: jest.fn(),
   AuthorizationStatus: { NOT_DETERMINED: 0, DENIED: 1, AUTHORIZED: 2, PROVISIONAL: 3 },
 }));
-jest.mock('expo-notifications', () => ({ setBadgeCountAsync: jest.fn() }));
+jest.mock('expo-notifications', () => ({
+  setBadgeCountAsync: jest.fn(),
+  dismissAllNotificationsAsync: jest.fn(),
+}));
 jest.mock('../notifications/register', () => ({
   registerForPushNotifications: jest.fn().mockResolvedValue(null),
   listenForTokenRefresh: jest.fn(() => jest.fn()),

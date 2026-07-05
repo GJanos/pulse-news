@@ -32,6 +32,7 @@ import { useAuthInit } from './src/hooks/useAuthInit';
 import { usePreferences } from './src/hooks/usePreferences';
 import { useDeviceRegistration } from './src/hooks/useDeviceRegistration';
 import { useNotificationHandlers } from './src/hooks/useNotificationHandlers';
+import { useNotificationClearing } from './src/hooks/useNotificationClearing';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import SplashScreenComponent from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -82,6 +83,7 @@ export default function App(): React.ReactElement {
   usePreferences();
   useDeviceRegistration();
   useNotificationHandlers();
+  useNotificationClearing();
 
   useEffect(() => {
     if (appState !== 'booting') {
