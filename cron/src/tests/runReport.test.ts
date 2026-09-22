@@ -117,6 +117,20 @@ describe('buildRunReport', () => {
     expect(report.regions.failed).toEqual(['France']);
   });
 
+  it('reports status failed when no region produced a digest', () => {
+    const report = buildRunReport(
+      makeArgs({
+        digests: [],
+        errors: [
+          { region: 'Hungary', reason: new Error('401') },
+          { region: 'United States', reason: new Error('401') },
+        ],
+      }),
+    );
+    expect(report.status).toBe('failed');
+    expect(report.regions.succeeded).toEqual([]);
+  });
+
   it('partitions regions into requested / succeeded', () => {
     const report = buildRunReport(makeArgs());
     expect(report.regions.requested).toEqual(['Hungary', 'United States']);

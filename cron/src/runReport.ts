@@ -28,7 +28,8 @@ export interface NotifyOutcome {
 export interface RunReport {
   schema: 'pulse.run.v1';
   runAt: string;
-  status: 'ok' | 'partial';
+  /** failed = no region produced a digest; nothing was persisted or notified. */
+  status: 'ok' | 'partial' | 'failed';
   durationMs: number;
   runConfig: RunConfig;
   regions: { requested: string[]; succeeded: string[]; failed: string[] };
@@ -85,7 +86,7 @@ export function buildRunReport(args: BuildRunReportArgs): RunReport {
   return {
     schema: 'pulse.run.v1',
     runAt: new Date().toISOString(),
-    status: errors.length > 0 ? 'partial' : 'ok',
+    status: digests.length === 0 ? 'failed' : errors.length > 0 ? 'partial' : 'ok',
     durationMs: Date.now() - startTime,
     runConfig: buildRunConfig(config),
     regions: {

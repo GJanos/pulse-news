@@ -47,6 +47,19 @@ async function main(): Promise<void> {
     );
 
     if (digests.length === 0) {
+      // Persist the failure too — otherwise a dead pipeline (e.g. an exhausted
+      // API quota) leaves no trace in pipeline_runs, only in expiring Actions logs.
+      await persistRunReport(
+        buildRunReport({
+          config,
+          resolvedRegions,
+          digests,
+          errors,
+          startTime,
+          globalRankingUsage: null,
+          notify: { devicesTargeted: 0, sent: 0, failed: 0 },
+        }),
+      );
       throw new Error('All region fetches failed');
     }
 

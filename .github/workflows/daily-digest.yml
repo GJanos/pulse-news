@@ -3,15 +3,18 @@ name: Daily Digest
 # Scheduled Actions caveats:
 # - GitHub fires `schedule` on a best-effort basis; delays of 5–15+ minutes at
 #   busy times are normal. The digest tolerates this — it just lands later.
-# - GitHub disables schedules after 60 days without repo activity; re-enable
-#   from the Actions tab if pushes pause that long.
+# - GitHub disables schedules after 60 days without repo activity. The
+#   keepalive step below re-enables both scheduled workflows on every run,
+#   which resets that clock without needing commits.
 on:
   schedule:
-    - cron: '0 4 * * *' # 06:00 UTC daily
+    - cron: '0 4 * * *' # 04:00 UTC daily (06:00 CEST / 05:00 CET)
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: write # keepalive: re-enable the scheduled workflows
+  issues: write # open an issue when a scheduled run fails
 
 # A run can take a while (9 regions × retries); never let two overlap.
 concurrency:
@@ -47,3 +50,32 @@ jobs:
           path: cron/logs/
           if-no-files-found: ignore
           retention-days: 30
+
+      # A dead pipeline is otherwise silent: the app just shows yesterday's
+      # digest. Open (or comment on) one tracking issue so the failure lands in
+      # the GitHub inbox. Scheduled runs only — manual runs are watched live.
+      - name: Report failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Daily digest failing"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Failed again: $RUN_URL"
+          else
+            body="Scheduled daily-digest run failed: $RUN_URL — check the run log (API quota/billing, Supabase paused, expired keys). Close this once it's green again."
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
+
+      # GitHub disables scheduled workflows after 60 days without repo activity.
+      # Re-enabling via the API resets that clock, so the cron keeps itself alive.
+      - name: Keep scheduled workflows enabled
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wf in daily-digest.yml notify.yml; do
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/enable" || echo "keepalive failed for $wf"
+          done
