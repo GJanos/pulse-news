@@ -8,6 +8,23 @@ it on LinkedIn. Everything below is scoped to that.
 
 ## Now — blocks everything else
 
+### 0. The backend is down (found 2026-09-22)
+
+- Perplexity returns `401 insufficient_quota` for every region since **2026-09-03** — no
+  digest has been generated since. Top up / fix billing at perplexity.ai/settings/api.
+- GitHub then disabled both scheduled workflows (`disabled_inactivity`). Re-enable
+  Daily Digest and Notify in the Actions tab (or `gh workflow enable daily-digest.yml` /
+  `notify.yml`). The daily-digest workflow now re-enables both on every run, so this
+  shouldn't recur once it is running again.
+- The Supabase project didn't answer on 2026-09-22 — most likely paused after the idle
+  days (the "cron keeps it warm" assumption below failed as soon as the cron died).
+  Restore it from the dashboard.
+- [ ] Then trigger Daily Digest manually and confirm a green run + a `pipeline_runs` row.
+
+Failed runs are no longer silent: an all-regions failure now writes a `status = 'failed'`
+row to `pipeline_runs`, and a failed scheduled run opens (or comments on) a
+"Daily digest failing" GitHub issue.
+
 ### 1. Custom SMTP (Brevo) — external testers can't sign up without this
 
 Supabase's built-in email sender only delivers to project team members and is capped at a
@@ -51,14 +68,17 @@ uninstall and lose their data** — APK signatures cannot change in place.
       `keytool -genkeypair -v -storetype PKCS12 -keystore pulse-release.keystore -alias pulse -keyalg RSA -keysize 2048 -validity 10000`
 - [ ] Back it up (password manager + an offline copy) along with both passwords and the
       alias. Losing it permanently ends the update path for everyone who installed.
-- [ ] Wire it so it survives `expo prebuild`. **`android/` is gitignored and regenerated,
+- [x] Wire it so it survives `expo prebuild` — done: `app/plugins/withReleaseSigning.js`
+      reads `PULSE_UPLOAD_STORE_FILE` / `_STORE_PASSWORD` / `_KEY_ALIAS` / `_KEY_PASSWORD`
+      and **fails the release build** when they're unset (never falls back to debug).
+      Original notes: **`android/` is gitignored and regenerated,
       so editing `build.gradle` directly gets wiped.** Two options:
   - Add an Expo config plugin under `app/plugins/` (matches the existing
     `withNavigationBarContrast` idiom) that injects `signingConfigs.release`, reading
     credentials from env vars; or
   - Add `eas.json` with an APK profile (`buildType: apk`, `distribution: internal`) and
     let EAS manage credentials.
-- [ ] Add `"versionCode"` under `android` in `app.json` — it is currently absent, so every
+- [x] Add `"versionCode"` under `android` in `app.json` _(added, = 1)_ — it is currently absent, so every
       prebuild emits `versionCode 1` and no build can ever update another. Agree a bump
       convention (versionCode +1 per release, versionName = semver).
 - [ ] Verify with `apksigner verify --print-certs app-release.apk` that the signer is the
@@ -72,7 +92,12 @@ function is **not defined in `supabase/schema.sql`** — the only RPCs there are
 `claim_due_notifications`. The test at `useSupabaseAuth.test.ts:169` mocks the RPC, so the
 suite is green either way.
 
-- [ ] Check the live DB. Either it exists and `schema.sql` has drifted (fix the reference),
+- [x] Defined in `schema.sql` (deletes the caller's device rows + `auth.users` row).
+      **Still to do:** run the new `delete_my_account` and updated `register_device` blocks
+      in the Supabase SQL editor — couldn't check the live DB (project unreachable).
+- [x] Drift test added: `app/src/tests/schemaRpcs.test.ts` fails if the app calls an RPC
+      that `schema.sql` doesn't define.
+- [ ] ~~Check the live DB.~~ Either it exists and `schema.sql` has drifted (fix the reference),
       or it was never created and in-app account deletion is broken for every user.
 - [ ] If missing: write it as `SECURITY DEFINER`, deleting from `auth.users` for
       `auth.uid()`. `user_preferences` cascades; `devices.user_id` is `ON DELETE SET NULL`
@@ -86,8 +111,8 @@ Declares `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, but `app/src/supabase/client.ts
 example file. A release built from a fresh `.env` copy silently runs in "local-only mode"
 with no backend.
 
-- [ ] Fix the name in `app/.env.example`.
-- [ ] Make `client.ts` fail loudly on a release build instead of warning and continuing.
+- [x] Fix the name in `app/.env.example`.
+- [x] Make `client.ts` fail loudly on a release build instead of warning and continuing.
 
 ### 5. Release-build smoke test on a clean device
 
