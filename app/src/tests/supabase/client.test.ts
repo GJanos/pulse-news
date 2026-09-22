@@ -1,9 +1,11 @@
+import type * as ClientModule from '../../supabase/client';
+
 const ORIGINAL_ENV = process.env;
 
 function loadClient(env: Record<string, string | undefined>, dev: boolean) {
   process.env = { ...ORIGINAL_ENV, ...env };
   (global as { __DEV__?: boolean }).__DEV__ = dev;
-  let mod: typeof import('../../supabase/client') | undefined;
+  let mod: typeof ClientModule | undefined;
   jest.isolateModules(() => {
     mod = require('../../supabase/client');
   });
