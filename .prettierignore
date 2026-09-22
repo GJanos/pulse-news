@@ -1,0 +1,7 @@
+# Local-only generated output. The root .gitignore (the other --ignore-path) does
+# not see app/.gitignore, so these would otherwise fail format:check locally.
+app/android/
+app/ios/
+app/.expo/
+app/coverage/
+**/.claude/settings.local.json

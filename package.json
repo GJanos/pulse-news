@@ -5,8 +5,8 @@
     "prepare": "husky",
     "lint": "eslint --ext .ts,.tsx . --ignore-path .gitignore",
     "lint:fix": "eslint --ext .ts,.tsx . --ignore-path .gitignore --fix",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore",
-    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore"
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore --ignore-path .prettierignore"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.21.0",
