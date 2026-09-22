@@ -17,10 +17,16 @@ let _warnedUnconfigured = false;
  * env vars aren't set yet (during early scaffolding).
  *
  * Returns null when not configured — callers must handle this and fall
- * back to local-only behaviour.
+ * back to local-only behaviour. Release builds throw instead: a release APK
+ * built from a bad .env would otherwise ship silently with no backend.
  */
 export function getSupabase(): SupabaseClient | null {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
+    if (!__DEV__) {
+      throw new Error(
+        'Supabase not configured in a release build — set EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_KEY in app/.env and rebuild',
+      );
+    }
     if (!_warnedUnconfigured) {
       log.warn(
         'Supabase not configured — running in local-only mode (set EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_KEY in app/.env)',
