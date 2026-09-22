@@ -22,7 +22,14 @@ CREATE TABLE IF NOT EXISTS devices (
 -- CREATE TABLE IF NOT EXISTS above, an inline constraint would be silently skipped when
 -- this file is re-applied to an already-existing devices table, leaving duplicate-token
 -- rows possible. The ALTER applies the constraint regardless of whether the table is new.
-ALTER TABLE devices ADD CONSTRAINT devices_fcm_token_key UNIQUE (fcm_token);
+-- Wrapped in a DO block so re-applying the file doesn't fail on "constraint already exists".
+DO $
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'devices_fcm_token_key') THEN
+    ALTER TABLE devices ADD CONSTRAINT devices_fcm_token_key UNIQUE (fcm_token);
+  END IF;
+END;
+$;
 
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 
@@ -51,17 +58,22 @@ CREATE OR REPLACE FUNCTION register_device(
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $
+DECLARE
+  v_user_id uuid := CASE WHEN auth.role() = 'service_role' THEN p_user_id END;
 BEGIN
   -- Reinstall ghost / FCM token reassignment: a different row currently owns this token.
   -- Evict it so the upsert below can take the token over without violating UNIQUE(fcm_token).
   DELETE FROM devices WHERE fcm_token = p_token AND id <> p_id;
 
   -- Upsert by the stable per-install id. Only overwrite user_id when provided, so a pre-auth
-  -- re-register (p_user_id = NULL) never clobbers an existing link. notify_at is intentionally
+  -- re-register (p_user_id = NULL) never clobbers an existing link. p_user_id is honoured
+  -- only for the service role: anon/authenticated callers must go through
+  -- link_device_to_user, which derives the user from the JWT. Otherwise anyone holding the
+  -- publishable key could stamp an arbitrary user id onto a device row. notify_at is intentionally
   -- untouched — it is owned by the app's updateNotifyTime, and registration must preserve it.
   INSERT INTO devices (id, fcm_token, user_id, updated_at)
-  VALUES (p_id, p_token, p_user_id, now())
+  VALUES (p_id, p_token, v_user_id, now())
   ON CONFLICT (id) DO UPDATE SET
     fcm_token  = EXCLUDED.fcm_token,
     user_id    = COALESCE(EXCLUDED.user_id, devices.user_id),
@@ -136,6 +148,10 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "user read own prefs"   ON user_preferences;
+DROP POLICY IF EXISTS "user write own prefs"  ON user_preferences;
+DROP POLICY IF EXISTS "user update own prefs" ON user_preferences;
+
 CREATE POLICY "user read own prefs"
   ON user_preferences FOR SELECT USING (auth.uid() = user_id);
 
@@ -146,6 +162,32 @@ CREATE POLICY "user update own prefs"
   ON user_preferences FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- delete_my_account — in-app account deletion (Settings → Account, useSupabaseAuth.ts).
+-- Deletes the caller's auth.users row; user_id comes from the JWT via auth.uid(), never a
+-- parameter, so a caller can only ever delete themselves. user_preferences cascades. The
+-- caller's device rows are deleted outright rather than left to ON DELETE SET NULL: an
+-- orphaned row would keep receiving pushes for an account that no longer exists. The app
+-- re-registers its device on next launch if the user signs up again.
+CREATE OR REPLACE FUNCTION delete_my_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+DECLARE
+  v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'delete_my_account requires an authenticated user';
+  END IF;
+  DELETE FROM devices WHERE user_id = v_uid;
+  DELETE FROM auth.users WHERE id = v_uid;
+END;
+$;
+
+REVOKE EXECUTE ON FUNCTION delete_my_account() FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION delete_my_account() TO authenticated;
 
 -- ============================================================
 -- digests
@@ -169,6 +211,7 @@ ALTER TABLE digests ENABLE ROW LEVEL SECURITY;
 
 -- Required: RLS default denies everything. This allows the app's
 -- publishable key to SELECT. Secret key bypasses RLS — no write policy needed.
+DROP POLICY IF EXISTS "public read" ON digests;
 CREATE POLICY "public read"
   ON digests
   FOR SELECT
