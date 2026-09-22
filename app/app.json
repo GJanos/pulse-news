@@ -15,6 +15,7 @@
       },
       "googleServicesFile": "./google-services.json",
       "package": "com.pulse.news",
+      "versionCode": 1,
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
@@ -27,6 +28,7 @@
     },
     "plugins": [
       "./plugins/withNavigationBarContrast",
+      "./plugins/withReleaseSigning",
       "@react-native-firebase/app",
       [
         "expo-build-properties",
