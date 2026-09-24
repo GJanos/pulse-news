@@ -23,13 +23,13 @@ CREATE TABLE IF NOT EXISTS devices (
 -- this file is re-applied to an already-existing devices table, leaving duplicate-token
 -- rows possible. The ALTER applies the constraint regardless of whether the table is new.
 -- Wrapped in a DO block so re-applying the file doesn't fail on "constraint already exists".
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'devices_fcm_token_key') THEN
     ALTER TABLE devices ADD CONSTRAINT devices_fcm_token_key UNIQUE (fcm_token);
   END IF;
 END;
-$;
+$$;
 
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 
@@ -58,7 +58,7 @@ CREATE OR REPLACE FUNCTION register_device(
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   v_user_id uuid := CASE WHEN auth.role() = 'service_role' THEN p_user_id END;
 BEGIN
@@ -174,7 +174,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   v_uid uuid := auth.uid();
 BEGIN
@@ -184,7 +184,7 @@ BEGIN
   DELETE FROM devices WHERE user_id = v_uid;
   DELETE FROM auth.users WHERE id = v_uid;
 END;
-$;
+$$;
 
 REVOKE EXECUTE ON FUNCTION delete_my_account() FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION delete_my_account() TO authenticated;

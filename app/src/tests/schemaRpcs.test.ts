@@ -37,4 +37,12 @@ describe('schema.sql defines every RPC the app calls', () => {
   it.each(calledRpcs)('%s is defined in supabase/schema.sql', (name) => {
     expect(schema).toContain(`CREATE OR REPLACE FUNCTION ${name}(`);
   });
+
+  // A shell edit once collapsed `$$` to `$`, which Postgres rejects — and the whole
+  // file stops applying at that point.
+  it('uses $$ (never a bare $) as the function-body delimiter', () => {
+    const bare = schema.split('\n').filter((l) => /^\s*(DO|AS)\s+\$\s*$|^\s*\$;/.test(l));
+    expect(bare).toEqual([]);
+    expect((schema.match(/\$\$/g) ?? []).length % 2).toBe(0);
+  });
 });
