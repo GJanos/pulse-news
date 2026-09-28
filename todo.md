@@ -1,195 +1,166 @@
 # Pulse — Todo
 
-**Goal shift (2026-07-29):** "Go live" no longer means Play Store listing. It means:
-ship a signed APK to GitHub Releases, let people download and install it, and post about
-it on LinkedIn. Everything below is scoped to that.
+**Goal (since 2026-07-29):** "Go live" means a signed APK on GitHub Releases that people
+download and install, announced on LinkedIn. No Play Store listing. Everything below is
+scoped to that, in the order to do it.
 
 ---
 
-## Now — blocks everything else
+## A. Switch it back on
 
-### 0. The backend is down (found 2026-09-22)
+The backend has been down since **2026-09-03**. Perplexity returns `401 insufficient_quota`
+for every region, so no digest has been generated since. GitHub then disabled both scheduled
+workflows (`disabled_inactivity`), and the Supabase project stopped answering on 2026-09-22,
+most likely paused once the cron stopped keeping it warm.
 
-- Perplexity returns `401 insufficient_quota` for every region since **2026-09-03** — no
-  digest has been generated since. Top up / fix billing at perplexity.ai/settings/api.
-- GitHub then disabled both scheduled workflows (`disabled_inactivity`). Re-enable
-  Daily Digest and Notify in the Actions tab (or `gh workflow enable daily-digest.yml` /
-  `notify.yml`). The daily-digest workflow now re-enables both on every run, so this
-  shouldn't recur once it is running again.
-- The Supabase project didn't answer on 2026-09-22 — most likely paused after the idle
-  days (the "cron keeps it warm" assumption below failed as soon as the cron died).
-  Restore it from the dashboard.
-- [ ] Then trigger Daily Digest manually and confirm a green run + a `pipeline_runs` row.
+- [ ] **Perplexity billing.** Top up / fix it at perplexity.ai/settings/api.
+- [ ] **Restore the Supabase project** from the dashboard.
+- [ ] **Check the live `delete_my_account` before overwriting it.** In the SQL editor:
+      `select pg_get_functiondef(p.oid) from pg_proc p where p.proname = 'delete_my_account';`
+      `CREATE OR REPLACE` would overwrite a no-arg `void` version (losing anything extra it
+      does), errors if the return type differs, and adds an overload if it takes arguments.
+      Make `schema.sql` match the live one first if it does more.
+- [ ] **Apply the new SQL** from `supabase/schema.sql`: the updated `register_device` (only
+      the service role may set `p_user_id` now) and `delete_my_account` if the check above
+      says it's safe. The file is now safe to re-run as a whole.
+- [ ] **Re-enable the workflows:** `gh workflow enable daily-digest.yml` and
+      `gh workflow enable notify.yml` (or from the Actions tab).
+- [ ] **Trigger Daily Digest manually** and confirm a green run, a new `pipeline_runs` row,
+      and a push notification.
+- [ ] **Merge `fix/pre-release-hardening`** → `develop` → `main`. Until the new workflow is
+      on the branch the schedule runs from, the failure issue and the self-re-enable aren't
+      live, and the schedules can get disabled again.
+- [ ] Afterwards, confirm in the dashboard that the daily cron really keeps the Supabase
+      project from pausing (free projects pause after ~7 days idle).
 
-Failed runs are no longer silent: an all-regions failure now writes a `status = 'failed'`
-row to `pipeline_runs`, and a failed scheduled run opens (or comments on) a
-"Daily digest failing" GitHub issue.
+Once merged, failures are no longer silent: an all-regions failure writes a
+`status = 'failed'` row to `pipeline_runs`, a failed scheduled run opens (or comments on) a
+"Daily digest failing" GitHub issue, and every run re-enables both scheduled workflows.
 
-### 1. Custom SMTP (Brevo) — external testers can't sign up without this
+## B. Custom SMTP (Brevo) — external testers can't sign up without this
 
-Supabase's built-in email sender only delivers to project team members and is capped at a
-couple of messages per hour. Any external tester who signs up today gets no confirmation
-mail and is stuck. Decision: **Brevo**, individual-sender verification (no domain owned).
+Supabase's built-in sender only delivers to project team members and is capped at a couple
+of messages per hour, so an external tester gets no confirmation mail and is stuck.
+Decision: **Brevo**, individual-sender verification (no domain owned).
 
-- [ ] Create a Brevo account (free tier: 300 emails/day — far more than needed)
-- [ ] Brevo → **Senders, Domains & Dedicated IPs → Senders → Add a sender**. Enter the
-      address emails will come from; Brevo mails it a verification link. This is the
-      no-domain path — it verifies a single address rather than a whole domain.
-- [ ] Brevo → **SMTP & API → SMTP** tab → generate an SMTP key. Note:
-      host `smtp-relay.brevo.com`, port `587`, login = the address shown on that page,
-      password = **the generated SMTP key**, not the account password.
-- [ ] Supabase Dashboard → **Authentication → Emails → SMTP Settings** → enable custom
-      SMTP and fill in the four values above. Sender name: `Pulse`.
-- [ ] Supabase → **Authentication → Rate Limits** → raise "emails per hour" off the
-      default (it stays at the built-in low cap until custom SMTP is on).
-- [ ] **Supabase → Authentication → URL Configuration → Redirect URLs** — add
-      `pulse://confirm` and `pulse://reset-password`. Without these on the allowlist,
-      Supabase rejects the redirect and the links die _even with SMTP working_. This is
-      the silent-failure counterpart to the deep-link work in PRs #49/#50.
-- [ ] Check the **Confirm signup** and **Reset password** templates still use
-      `{{ .ConfirmationURL }}` and read like a real product, not a default.
+- [ ] Create a Brevo account (free tier: 300 emails/day).
+- [ ] Brevo → **Senders, Domains & Dedicated IPs → Senders → Add a sender**. Brevo mails the
+      address a verification link. This verifies a single address, no domain needed.
+- [ ] Brevo → **SMTP & API → SMTP** → generate an SMTP key. Host `smtp-relay.brevo.com`,
+      port `587`, login = the address shown on that page, password = **the SMTP key**, not
+      the account password.
+- [ ] Supabase → **Authentication → Emails → SMTP Settings** → enable custom SMTP with those
+      values. Sender name: `Pulse`.
+- [ ] Supabase → **Authentication → Rate Limits** → raise "emails per hour" off the default.
+- [ ] Supabase → **Authentication → URL Configuration → Redirect URLs** → add
+      `pulse://confirm` and `pulse://reset-password`. Without them Supabase rejects the
+      redirect and the links die _even with SMTP working_.
+- [ ] Check the **Confirm signup** and **Reset password** templates use
+      `{{ .ConfirmationURL }}` and read like a real product.
 - [ ] Test end-to-end from an address that is **not** a project team member: sign up →
       receive mail → tap link → lands in the app signed in. Repeat for password reset.
 
-> ⚠️ Deliverability caveat: with no domain, the From address can't be DKIM-aligned to a
-> domain you control, so Gmail/Outlook may file it under spam. Tell testers to check
-> spam. A ~$10/yr domain would fix this properly and could also host the privacy policy —
-> worth revisiting if the spam rate is bad.
+> ⚠️ With no domain the From address can't be DKIM-aligned, so Gmail/Outlook may file it
+> under spam. Tell testers to check spam. A ~$10/yr domain fixes this and could also host
+> the privacy policy — revisit if the spam rate is bad.
 
-### 2. Release signing — one-way door, fix before the first public APK
+## C. Release signing — one-way door, before the first public APK
 
-`app/android/app/build.gradle` currently has `release { signingConfig signingConfigs.debug }`
-(the stock Expo placeholder). The `app-release.apk` in build outputs right now is signed
-with the public Android debug key (`storePassword 'android'`). Anyone can forge an update
-for it, and **if v1 ships debug-signed, switching to a real key later forces every user to
-uninstall and lose their data** — APK signatures cannot change in place.
+APK signatures can't change in place: if v1 ships debug-signed, moving to a real key later
+forces every user to uninstall and lose their data. The config plugin
+(`app/plugins/withReleaseSigning.js`) is done — it reads the env vars below and **fails the
+release build** when they're unset instead of falling back to the debug key.
 
-- [ ] Generate a real keystore:
+- [ ] Generate the keystore:
       `keytool -genkeypair -v -storetype PKCS12 -keystore pulse-release.keystore -alias pulse -keyalg RSA -keysize 2048 -validity 10000`
-- [ ] Back it up (password manager + an offline copy) along with both passwords and the
-      alias. Losing it permanently ends the update path for everyone who installed.
-- [x] Wire it so it survives `expo prebuild` — done: `app/plugins/withReleaseSigning.js`
-      reads `PULSE_UPLOAD_STORE_FILE` / `_STORE_PASSWORD` / `_KEY_ALIAS` / `_KEY_PASSWORD`
-      and **fails the release build** when they're unset (never falls back to debug).
-      Original notes: **`android/` is gitignored and regenerated,
-      so editing `build.gradle` directly gets wiped.** Two options:
-  - Add an Expo config plugin under `app/plugins/` (matches the existing
-    `withNavigationBarContrast` idiom) that injects `signingConfigs.release`, reading
-    credentials from env vars; or
-  - Add `eas.json` with an APK profile (`buildType: apk`, `distribution: internal`) and
-    let EAS manage credentials.
-- [x] Add `"versionCode"` under `android` in `app.json` _(added, = 1)_ — it is currently absent, so every
-      prebuild emits `versionCode 1` and no build can ever update another. Agree a bump
-      convention (versionCode +1 per release, versionName = semver).
-- [ ] Verify with `apksigner verify --print-certs app-release.apk` that the signer is the
-      new key, not `CN=Android Debug`.
+- [ ] Back it up (password manager + an offline copy) with both passwords and the alias.
+      Losing it permanently ends the update path for everyone who installed.
+- [ ] Set `PULSE_UPLOAD_STORE_FILE`, `PULSE_UPLOAD_STORE_PASSWORD`, `PULSE_UPLOAD_KEY_ALIAS`
+      and `PULSE_UPLOAD_KEY_PASSWORD`, then build the release.
+- [ ] `apksigner verify --print-certs app-release.apk` — the signer must be the new key, not
+      `CN=Android Debug`.
+- [ ] Agree the bump convention: `versionCode` +1 per release (now `1` in `app.json`),
+      `versionName` = semver.
 
-### 3. Verify `delete_my_account` actually exists
+## D. Release smoke test on a clean device
 
-`app/src/hooks/useSupabaseAuth.ts:96` calls `client.rpc('delete_my_account')`, but that
-function is **not defined in `supabase/schema.sql`** — the only RPCs there are
-`register_device`, `update_notify_time`, `link_device_to_user`, `peek_due_notifications`,
-`claim_due_notifications`. The test at `useSupabaseAuth.test.ts:169` mocks the RPC, so the
-suite is green either way.
-
-- [x] Defined in `schema.sql` (deletes the caller's device rows + `auth.users` row).
-      **Still to do:** run the new `delete_my_account` and updated `register_device` blocks
-      in the Supabase SQL editor — couldn't check the live DB (project unreachable).
-- [x] Drift test added: `app/src/tests/schemaRpcs.test.ts` fails if the app calls an RPC
-      that `schema.sql` doesn't define.
-- [ ] ~~Check the live DB.~~ Either it exists and `schema.sql` has drifted (fix the reference),
-      or it was never created and in-app account deletion is broken for every user.
-- [ ] If missing: write it as `SECURITY DEFINER`, deleting from `auth.users` for
-      `auth.uid()`. `user_preferences` cascades; `devices.user_id` is `ON DELETE SET NULL`
-      — decide whether the device row should be deleted rather than orphaned.
-- [ ] Add a test that fails when the RPC is absent, not just when it isn't called.
-
-### 4. `app/.env.example` has the wrong variable name
-
-Declares `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, but `app/src/supabase/client.ts:10` reads
-`EXPO_PUBLIC_SUPABASE_KEY`. Commit `6d8bf7f` corrected this in the README but missed the
-example file. A release built from a fresh `.env` copy silently runs in "local-only mode"
-with no backend.
-
-- [x] Fix the name in `app/.env.example`.
-- [x] Make `client.ts` fail loudly on a release build instead of warning and continuing.
-
-### 5. Release-build smoke test on a clean device
-
-`android.enableMinifyInReleaseBuilds=true` and ProGuard are **on** for release, plus
-`newArchEnabled=true`. Reanimated, MMKV, Firebase messaging, WebView and SVG are all
-ProGuard-sensitive and can fail only in release, only at runtime. Dev builds prove nothing.
+Release builds have minify/ProGuard and `newArchEnabled=true` on. Reanimated, MMKV, Firebase
+messaging, WebView and SVG are ProGuard-sensitive and can fail only in release, only at
+runtime. Dev builds prove nothing.
 
 - [ ] `adb uninstall com.pulse.news` first, so no dev build state masks a failure.
 - [ ] Install the signed release APK and walk every flow: signup → email confirm deep link
-      → digest loads → pager swipe → article WebView → every settings section → notify
-      time change → push arrives → cold-start tap from notification → badge and tray clear
-      → password reset deep link → delete account.
-- [ ] Watch `adb logcat` for `ClassNotFoundException` / `NoSuchMethodError` — the ProGuard
-      signature. Add `-keep` rules to `proguard-rules.pro` as needed.
+      → digest loads → pager swipe → article WebView → every settings section → notify time
+      change → push arrives → cold-start tap from notification → badge and tray clear →
+      password reset deep link → delete account.
+- [ ] Watch `adb logcat` for `ClassNotFoundException` / `NoSuchMethodError`; add `-keep`
+      rules to `proguard-rules.pro` as needed.
+- [ ] Fresh account: digests are shared per region per date, so a new signup should see
+      today's digest immediately, not the "No digest available for your selected regions"
+      empty state.
 
----
-
-## Ship — GitHub Releases
+## E. Before publishing
 
 ### Build
 
-- [ ] Consider trimming `reactNativeArchitectures` to `armeabi-v7a,arm64-v8a`. It currently
-      includes `x86,x86_64`, which only emulators use, and they roughly double APK size.
-- [ ] Decide universal APK (one file, simpler for a download page) vs per-ABI splits.
-      Universal is almost certainly right here.
-- [ ] Publish the APK's SHA-256 in the release notes — cheap, real trust signal for a
-      sideloaded binary.
+- [ ] Consider trimming `reactNativeArchitectures` to `armeabi-v7a,arm64-v8a`. `x86,x86_64`
+      are emulator-only and roughly double the APK size — but emulator release builds would
+      stop working.
+- [ ] Universal APK vs per-ABI splits. Universal is almost certainly right for a download page.
 
-### Legal / trust — still applies without a store
+### Legal / trust — skipping the Play Store doesn't skip GDPR
 
-Skipping the Play Store does not skip GDPR. You're in the EU, you collect email addresses
-and device tokens, so a privacy policy is still genuinely required — not just store box-ticking.
-
-- [ ] **Privacy policy** hosted at a URL. GitHub Pages is free and needs no domain. Must
-      disclose: email (Supabase Auth), FCM device token, preferences and region selection;
-      processors Supabase, Google/Firebase, Perplexity, Anthropic, Brevo; 7-day digest
-      retention; deletion rights; a contact address.
-      Worth stating accurately: **no user personal data is sent to Perplexity or Anthropic**
-      — only headline/article text flows there. That's a genuine selling point.
+- [ ] **Privacy policy** hosted at a URL (GitHub Pages, no domain needed). Must disclose:
+      email (Supabase Auth), FCM device token, preferences and region selection; processors
+      Supabase, Google/Firebase, Perplexity, Anthropic, Brevo; 7-day digest retention;
+      deletion rights; a contact address. Worth stating: **no user personal data is sent to
+      Perplexity or Anthropic** — only headline/article text.
 - [ ] Link it from Settings (`SettingsFooter.tsx` already renders the version row).
-- [ ] `LICENSE` — MIT. _(added 2026-07-29)_
-- [ ] Account deletion must actually work — see blocker #3.
+
+### Operational — you're on the hook for other people's experience
+
+- [ ] **Crash reporting.** There is none; a crash on a stranger's device is invisible.
+      Sentry's free tier (5k events/mo) is enough.
+- [ ] Confirm Supabase free-tier auth limits are comfortable. Cost is otherwise bounded:
+      generation is per-region-per-day and doesn't scale with users, FCM is free, Brevo caps
+      at 300 mails/day.
+- [ ] Note in the README that `google-services.json` is gitignored, so a clone can't build
+      without its own Firebase config.
+
+## F. Release and launch
 
 ### Release page
 
-- [ ] Tag `v1.0.0`, attach the APK, write release notes.
-- [ ] **Install instructions are load-bearing.** Android will show "unsafe app blocked" via
-      Play Protect for an unknown sideloaded APK. Spell out: allow install from unknown
-      sources for the browser/file manager → on the Play Protect dialog tap _More details_
-      → _Install anyway_. Without this most non-technical downloaders just bounce.
-- [ ] State clearly that sideloaded installs do **not** auto-update, and how people will
-      hear about new versions (watch the repo / follow the LinkedIn post).
-- [ ] Note in the README that `google-services.json` is gitignored, so a clone can't build
-      without supplying their own Firebase config.
-
-### Operational — you're now on the hook for other people's experience
-
-- [ ] **Crash reporting.** There is none. Right now a crash on a stranger's device is
-      completely invisible to you. Sentry's free tier (5k events/mo) is enough.
-- [ ] Confirm the first-run experience: digests are one row per region per date shared
-      across all users, so a new signup should see today's digest immediately rather than
-      the "No digest available for your selected regions" empty state. Verify with a fresh
-      account before anyone else does.
-- [ ] Cost exposure is bounded — digest generation is per-region-per-day and does **not**
-      scale with user count. FCM is free. Brevo caps at 300 mails/day. Worth confirming
-      Supabase free-tier auth limits are comfortable, then stop worrying about this.
-- [ ] Supabase free projects pause after ~7 days idle; the daily cron keeps it warm, but
-      confirm that's actually true in the dashboard before relying on it.
-- [ ] GitHub Issues is already enabled — point testers at it as the feedback channel.
+- [ ] Tag `v1.0.0`, attach the APK, write release notes, publish the APK's SHA-256.
+- [ ] **Install instructions are load-bearing.** Play Protect blocks unknown sideloaded APKs.
+      Spell out: allow installs from unknown sources for the browser/file manager → on the
+      Play Protect dialog tap _More details_ → _Install anyway_.
+- [ ] State that sideloaded installs do **not** auto-update, and how people hear about new
+      versions (watch the repo / follow the LinkedIn post).
+- [ ] Point testers at GitHub Issues as the feedback channel.
 
 ### LinkedIn launch
 
-- [ ] Screenshots (2–4) and a short screen-recording GIF of the swipe + notification flow.
-- [ ] Put screenshots and a download badge at the top of the root README — for anyone
-      arriving from LinkedIn, that README _is_ the landing page.
-- [ ] Update the `GJanos` profile README entry with the release link.
-- [ ] Pin the repo on the GitHub profile.
+- [ ] Screenshots (2–4) and a short GIF of the swipe + notification flow.
+- [ ] Screenshots and a download badge at the top of the root README — for anyone arriving
+      from LinkedIn, that README _is_ the landing page.
+- [ ] Update the `GJanos` profile README entry with the release link and pin the repo.
+- [ ] Post on LinkedIn.
+
+---
+
+## Done (2026-09-22, branch `fix/pre-release-hardening`)
+
+- `delete_my_account` defined in `schema.sql` (deletes the caller's devices + `auth.users`
+  row); `register_device` no longer trusts `p_user_id` from non-service callers; the file
+  re-applies cleanly.
+- `app/src/tests/schemaRpcs.test.ts` fails if the app calls an RPC `schema.sql` doesn't
+  define, or if a function body loses its `$$` delimiters.
+- Release signing plugin + `versionCode: 1`.
+- `app/.env.example` uses `EXPO_PUBLIC_SUPABASE_KEY`; `client.ts` throws on a release build
+  with no Supabase config.
+- Failed-run reporting + workflow keepalive (see A).
+- `LICENSE` — MIT.
 
 ---
 
