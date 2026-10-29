@@ -53,7 +53,7 @@ GitHub Actions — notify.yml (every 30 min)
 | `cron/`     | [cron/README.md](cron/README.md) — pipeline, config, run-report observability |
 | `app/`      | [app/README.md](app/README.md) — Expo setup, navigation, data flow            |
 | `supabase/` | [supabase/README.md](supabase/README.md) — schema, RLS, definer RPCs          |
-| `shared/`   | [shared/CLAUDE.md](shared/CLAUDE.md) — region constants, config, shared types |
+| `shared/`   | [shared/AGENTS.md](shared/AGENTS.md) — region constants, config, shared types |
 
 ---
 

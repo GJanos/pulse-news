@@ -1,14 +1,20 @@
-# Pulse News — CLAUDE.md
+# Pulse News
 
-## Repo layout
+## Map
 
-```
-pulse-news/
-├── shared/     ← types, config, region constants (no package.json; compiled by consumers)
-├── app/        ← React Native / Expo, Android-first
-├── cron/       ← Vercel cron jobs, Node.js
-└── supabase/   ← schema reference only (no code)
-```
+`app/`, `cron/` and `shared/` each have an `AGENTS.md` with their own rules; read it before working there.
+
+<!-- map:start -->
+
+| Path        | What                                                                    | Go here when                       |
+| ----------- | ----------------------------------------------------------------------- | ---------------------------------- |
+| `app/`      | React Native / Expo app, Android-first                                  | screens, navigation, push handling |
+| `cron/`     | Vercel cron jobs: fetch (Perplexity) → rank (Claude) → persist → notify | the daily digest pipeline          |
+| `shared/`   | types, config schema, region constants used by both `app/` and `cron/`  | a type or config both sides read   |
+| `supabase/` | schema reference only (no code)                                         | tables, RLS, RPCs                  |
+| `docs/`     | UX notes                                                                | a UX decision                      |
+
+<!-- map:end -->
 
 ## Build & test commands
 

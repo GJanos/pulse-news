@@ -1,4 +1,4 @@
-# cron/ — CLAUDE.md
+# cron/
 
 All slices landed on `develop`. Vercel cron jobs: fetch (Perplexity) → rank (Claude) → persist (Supabase) → notify (FCM).
 

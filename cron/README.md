@@ -60,7 +60,7 @@ npm run e2e:countryRanking -- US GB DE      # per-region rank on selected region
 
 ## Configuration
 
-Runtime config lives in `shared/pulse.config.json`. See `shared/CLAUDE.md` for the full field reference.
+Runtime config lives in `shared/pulse.config.json`. See `shared/AGENTS.md` for the full field reference.
 
 ---
 
@@ -103,4 +103,4 @@ Bump `schema` on any breaking shape change so downstream queries can branch on t
 
 ## Key source files
 
-See `cron/CLAUDE.md` for the full module map.
+See `cron/AGENTS.md` for the full module map.

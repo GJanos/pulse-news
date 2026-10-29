@@ -1,4 +1,4 @@
-# app/ — CLAUDE.md
+# app/
 
 ## What this package does
 
