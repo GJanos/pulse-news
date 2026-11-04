@@ -21,6 +21,15 @@ Reading the news is either too time-consuming or too algorithmically poisoned. M
 
 ---
 
+## Demo
+
+[![Pulse on Android — 97-second screen recording](docs/demo-poster.jpg)](docs/demo.mp4)
+
+97 seconds, recorded on the Android build: the daily digest, per-region sections, the in-app
+article reader, and the settings that drive them. The account screen is cut from the recording.
+
+---
+
 ## Architecture
 
 ```
