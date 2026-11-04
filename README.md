@@ -23,10 +23,13 @@ Reading the news is either too time-consuming or too algorithmically poisoned. M
 
 ## Demo
 
-[![Pulse on Android — 97-second screen recording](docs/demo-poster.jpg)](docs/demo.mp4)
+[![Pulse on Android — digest, headline, article](docs/demo-preview.gif)](docs/demo.mp4)
 
-97 seconds, recorded on the Android build: the daily digest, per-region sections, the in-app
-article reader, and the settings that drive them. The account screen is cut from the recording.
+The loop above is a 12-second slice: the digest, a tapped headline, and the in-app reader opening
+the source article. **[Download the full 97-second recording](docs/demo.mp4)** (720p, silent, 6.7 MB)
+— GitHub does not play video files in place, so it downloads rather than streams.
+
+The account screen is cut from the recording.
 
 ---
 
